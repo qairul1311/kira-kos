@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f1117" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="KiraKos" />
+  <meta name="description" content="Food cost and margin calculator for F&B businesses" />
+  <title>KiraKos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    :root {
+      --display: 'Instrument Serif', serif;
+      --body: 'DM Sans', sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+      --s0: #0f1117; --s1: #161920; --s2: #1d2028; --s3: #242731;
+      --border: #2c303d;
+      --t1: #edf0f7; --t2: #9096aa; --t3: #565c70;
+      --accent: #e8913a; --accent2: #d4782a; --accent-bg: rgba(232,145,58,.1);
+      --green: #2dd4a0; --red: #f47070; --amber: #f5c144;
+      --tab-h: 64px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; overscroll-behavior: none; }
+    @supports (height: 100dvh) {
+      #root { height: 100dvh !important; }
+    }
+    body { background: var(--s0); font-family: var(--body); color: var(--t1); -webkit-font-smoothing: antialiased; }
+    #root { height: 100%; display: flex; flex-direction: column; }
+    input, select, button { font-family: var(--body); }
+    input[type=number]::-webkit-inner-spin-button { opacity: .3; }
+    ::-webkit-scrollbar { display: none; }
+
+    .kk-appbar { background: var(--s1); border-bottom: 1px solid var(--border); padding: 12px 16px; padding-top: calc(12px + env(safe-area-inset-top, 0px)); display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .kk-logo { width: 32px; height: 32px; border-radius: 9px; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+    .kk-appname { font-family: var(--display); font-size: 20px; color: var(--t1); font-style: italic; line-height: 1; }
+    .kk-appsub { font-size: 9px; color: var(--t3); letter-spacing: .5px; margin-top: 2px; }
+    .kk-barright { margin-left: auto; font-size: 10px; color: var(--t3); text-align: right; line-height: 1.5; }
+    .kk-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0 14px 16px; scrollbar-width: none; min-height: 0; }
+    .kk-scroll::-webkit-scrollbar { display: none; }
+    .kk-tabbar { height: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px)); background: var(--s1); border-top: 1px solid var(--border); display: flex; align-items: flex-start; padding-top: 6px; flex-shrink: 0; }
+    .kk-tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; background: none; border: none; cursor: pointer; padding: 5px 2px; }
+    .kk-tab .ico { font-size: 20px; line-height: 1; transition: transform .15s; }
+    .kk-tab .lbl { font-size: 9px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; }
+    .kk-tab.active .ico { transform: scale(1.2); }
+    .kk-tab.active .lbl { color: var(--accent); }
+    .kk-tab:not(.active) .lbl { color: var(--t3); }
+
+    .kk-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.65); backdrop-filter: blur(5px); z-index: 50; }
+    .kk-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: var(--s1); border-radius: 18px 18px 0 0; border-top: 1px solid var(--border); max-height: 92%; overflow-y: auto; padding: 0 18px calc(24px + env(safe-area-inset-bottom, 0px)); z-index: 51; animation: kkSheet .28s cubic-bezier(.22,1,.36,1); scrollbar-width: none; }
+    .kk-sheet::-webkit-scrollbar { display: none; }
+    @keyframes kkSheet { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .kk-handle { width: 34px; height: 4px; background: var(--border); border-radius: 2px; margin: 12px auto 16px; }
+    .kk-sheet-title { font-family: var(--display); font-size: 19px; color: var(--t1); margin-bottom: 4px; font-style: italic; }
+    .kk-sheet-sub { font-size: 12px; color: var(--t3); margin-bottom: 18px; }
+
+    .kk-page { animation: kkPage .22s ease both; }
+    @keyframes kkPage { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    .kk-ph { position: sticky; top: 0; background: var(--s0); z-index: 10; padding: 14px 0 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .kk-ptitle { font-family: var(--display); font-size: 26px; color: var(--t1); font-style: italic; }
+
+    .kk-field { display: flex; flex-direction: column; gap: 5px; }
+    .kk-field label { font-size: 10px; font-weight: 700; color: var(--t3); text-transform: uppercase; letter-spacing: 1px; }
+    .kk-field input, .kk-field select { background: var(--s2); border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 13px; color: var(--t1); font-size: 14px; outline: none; width: 100%; transition: border-color .18s; -webkit-appearance: none; }
+    .kk-field input:focus, .kk-field select:focus { border-color: var(--accent); }
+
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; border-radius: 11px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .14s; min-height: 44px; padding: 0 18px; border: none; }
+    .btn-p { background: var(--accent); color: #fff; }
+    .btn-p:active { background: var(--accent2); }
+    .btn-s { background: var(--accent-bg); color: var(--accent); border: 1.5px solid var(--accent); }
+    .btn-d { background: rgba(244,112,112,.08); color: var(--red); border: 1.5px solid rgba(244,112,112,.25); }
+    .btn-g { background: var(--s2); color: var(--t2); border: 1.5px solid var(--border); }
+    .btn-amber { background: rgba(245,193,68,.12); color: var(--amber); border: 1.5px solid rgba(245,193,68,.35); }
+    .btn-sm { min-height: 36px; padding: 0 12px; font-size: 12px; border-radius: 9px; }
+    .btn-full { width: 100%; }
+
+    .card { background: var(--s1); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .stat { background: var(--s2); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+    .slabel { font-size: 9px; font-weight: 700; color: var(--t3); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 5px; }
+    .sval { font-family: var(--mono); font-size: 24px; font-weight: 700; line-height: 1; }
+    .ssub { font-size: 10px; color: var(--t3); margin-top: 3px; }
+
+    .badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 9px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; background: var(--accent-bg); color: var(--accent); }
+    .badge-amber { background: rgba(245,193,68,.1); color: var(--amber); }
+    .badge-red { background: rgba(244,112,112,.1); color: var(--red); }
+
+    .prog-track { height: 5px; background: var(--s3); border-radius: 3px; overflow: hidden; margin-top: 5px; }
+    .prog-fill { height: 100%; border-radius: 3px; transition: width .5s cubic-bezier(.22,1,.36,1); }
+
+    .empty { text-align: center; padding: 50px 20px; color: var(--t3); }
+    .empty-ico { font-size: 40px; margin-bottom: 12px; opacity: .4; }
+    .empty-msg { font-size: 13px; line-height: 1.6; }
+    .sec-label { font-size: 10px; font-weight: 700; color: var(--t3); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+
+    .ing-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .ing-row select, .ing-row input { background: var(--s2); border: 1.5px solid var(--border); border-radius: 9px; padding: 10px 9px; color: var(--t1); font-size: 12px; outline: none; }
+
+    .r-card { background: var(--s1); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+    .r-head { padding: 14px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+    .r-body { padding: 0 14px 14px; border-top: 1px solid var(--border); }
+
+    .ch-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .ch-row input { background: var(--s3); border: 1px solid var(--border); border-radius: 8px; padding: 10px; color: var(--t1); font-size: 13px; outline: none; }
+
+    .menu-card { background: var(--s2); border-radius: 11px; padding: 12px; margin-bottom: 8px; }
+
+    .scan-zone { border: 2px dashed var(--border); border-radius: 14px; padding: 32px 20px; text-align: center; cursor: pointer; transition: border-color .2s, background .2s; background: var(--s2); position: relative; overflow: hidden; }
+    .scan-zone:active { border-color: var(--accent); background: var(--accent-bg); }
+    .scan-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+
+    .scan-item-card { background: var(--s2); border: 1.5px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+    .scan-item-card.flagged { border-color: rgba(245,193,68,.4); }
+    .scan-item-card.removed { opacity: .4; }
+    .scan-ifield { display: flex; flex-direction: column; gap: 4px; }
+    .scan-ifield label { font-size: 9px; font-weight: 700; color: var(--t3); text-transform: uppercase; letter-spacing: .8px; }
+    .scan-ifield input, .scan-ifield select { background: var(--s3); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; color: var(--t1); font-size: 13px; outline: none; width: 100%; -webkit-appearance: none; }
+
+    .spinner { width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto 14px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .toast { position: fixed; top: 70px; left: 14px; right: 14px; background: var(--green); color: #0a1a12; border-radius: 10px; padding: 10px 14px; font-size: 13px; font-weight: 700; text-align: center; z-index: 300; animation: kkPage .2s ease; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useMemo, useEffect } = React;
+
+// ── localStorage helpers ──────────────────────────────────
+const STORAGE_KEY = "kirakos_v1";
+const saveData = (data) => {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
+};
+const loadData = () => {
+  try { const d = localStorage.getItem(STORAGE_KEY); return d ? JSON.parse(d) : null; } catch(e) { return null; }
+};
+const getApiKey = () => { try { return localStorage.getItem("kirakos_apikey") || ""; } catch(e) { return ""; } };
+const saveApiKey = (k) => { try { localStorage.setItem("kirakos_apikey", k); } catch(e) {} };
+
+// ── API Key Setup Modal ───────────────────────────────────
+const ApiKeyModal = ({open, onClose, onSave}) => {
+  const [key, setKey] = useState(getApiKey());
+  if (!open) return null;
+  return (
+    <>
+      <div className="kk-overlay" onClick={onClose} />
+      <div className="kk-sheet">
+        <div className="kk-handle" />
+        <div className="kk-sheet-title">🔑 Anthropic API Key</div>
+        <div className="kk-sheet-sub">Required for receipt scanning. Your key is stored only on this device.</div>
+        <div style={{background:"rgba(245,193,68,.08)",border:"1px solid rgba(245,193,68,.3)",borderRadius:10,padding:"12px 14px",marginBottom:16,fontSize:12,color:"var(--amber)",lineHeight:1.6}}>
+          Get your free key at <strong>console.anthropic.com</strong> → API Keys → Create Key
+        </div>
+        <div className="kk-field" style={{marginBottom:14}}>
+          <label>Paste your API key here</label>
+          <input
+            type="password"
+            value={key}
+            onChange={e => setKey(e.target.value)}
+            placeholder="sk-ant-..."
+            style={{fontFamily:"var(--mono)", fontSize:12}}
+          />
+        </div>
+        <div style={{fontSize:11,color:"var(--t3)",marginBottom:16,lineHeight:1.6}}>
+          Your key never leaves your device. It is saved in localStorage and only used to call the Anthropic API for receipt scanning.
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <button className="btn btn-p btn-full" onClick={() => { saveApiKey(key); onSave(key); onClose(); }} disabled={!key.startsWith("sk-")}>
+            Save Key
+          </button>
+          <button className="btn btn-g" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </>
+  );
+};
+
+const CURRENCIES = ["MYR","IDR","SGD","PHP","THB","USD"];
+const BIZ_TYPES = ["Stall","Cafe","Restaurant","Cloud Kitchen","Food Truck","Bakery","Catering"];
+const UNITS = ["kg","g","litre","ml","piece","pack","tray","dozen","bottle","can","bunch","cup","tbsp","tsp"];
+const CATEGORIES = ["Main","Side","Drink","Dessert","Combo","Add-on","Snack"];
+const BENCHMARK = {"Stall":[25,35],"Cafe":[28,35],"Restaurant":[30,38],"Cloud Kitchen":[25,33],"Food Truck":[25,35],"Bakery":[25,35],"Catering":[30,40]};
+const uid = () => Math.random().toString(36).slice(2,9);
+
+const TABS = [
+  {key:"guide",    label:"Guide",   icon:"📖"},
+  {key:"profile",  label:"Profile", icon:"🏪"},
+  {key:"ingredients", label:"Ingred.", icon:"🥚"},
+  {key:"packaging",label:"Pack.",   icon:"📦"},
+  {key:"recipes",  label:"Recipes", icon:"🍳"},
+  {key:"dashboard",label:"Stats",   icon:"📊"},
+];
+
+const defaultProfile = {
+  name:"", type:"Stall", currency:"MYR", targetCostPct:30,
+  channels:[
+    {id:uid(), name:"Walk-in",   commission:0},
+    {id:uid(), name:"GrabFood",  commission:30},
+    {id:uid(), name:"Foodpanda", commission:25},
+  ]
+};
+
+// ── Helpers ───────────────────────────────────────────────
+const Pill = ({val, target}) => {
+  const c = val <= target ? "var(--green)" : val <= target*1.15 ? "var(--amber)" : "var(--red)";
+  return <span style={{color:c, fontFamily:"var(--mono)", fontWeight:700, fontSize:13}}>{val.toFixed(1)}%</span>;
+};
+
+const Empty = ({msg}) => (
+  <div className="empty">
+    <div className="empty-ico">📭</div>
+    <div className="empty-msg">{msg}</div>
+  </div>
+);
+
+const Field = ({label, children}) => (
+  <div className="kk-field">
+    {label && <label>{label}</label>}
+    {children}
+  </div>
+);
+
+const Sheet = ({open, onClose, title, sub, children}) => {
+  if (!open) return null;
+  return (
+    <>
+      <div className="kk-overlay" onClick={onClose} />
+      <div className="kk-sheet">
+        <div className="kk-handle" />
+        {title && <div className="kk-sheet-title">{title}</div>}
+        {sub && <div className="kk-sheet-sub">{sub}</div>}
+        {children}
+      </div>
+    </>
+  );
+};
+
+const calcRecipe = (recipe, ingredients, packaging, targetCostPct) => {
+  let ingCost = 0;
+  recipe.items.forEach(it => {
+    const ing = ingredients.find(i => i.id === it.ingredientId);
+    if (ing) ingCost += ing.price * it.qty;
+  });
+  let pkgCost = 0;
+  recipe.pkgs.forEach(p => {
+    const pk = packaging.find(i => i.id === p.packagingId);
+    if (pk) pkgCost += pk.price * p.qty;
+  });
+  const raw = ingCost / (recipe.yield || 1);
+  const wst = raw * ((recipe.wastage || 0) / 100);
+  const lab = recipe.labourMin > 0 ? (recipe.labourRate / 60) * recipe.labourMin / (recipe.yield || 1) : 0;
+  const tot = raw + wst + pkgCost + lab;
+  const cp  = recipe.sellingPrice > 0 ? (tot / recipe.sellingPrice) * 100 : 0;
+  const gp  = recipe.sellingPrice - tot;
+  const mg  = recipe.sellingPrice > 0 ? (gp / recipe.sellingPrice) * 100 : 0;
+  const sp  = targetCostPct > 0 ? tot / (targetCostPct / 100) : 0;
+  return {ingCost:raw, pkgCost, wastageAmt:wst, labourCost:lab, totalCost:tot, costPct:cp, grossProfit:gp, margin:mg, suggestedPrice:sp};
+};
+
+// ── Receipt Scanner ───────────────────────────────────────
+const ReceiptScanner = ({open, onClose, onSave, currency, existingIngredients, onNeedKey}) => {
+  const [step, setStep] = useState("upload");
+  const [preview, setPreview] = useState(null);
+  const [scanItems, setScanItems] = useState([]);
+  const [supplier, setSupplier] = useState("");
+  const [error, setError] = useState(null);
+
+  const reset = () => { setStep("upload"); setPreview(null); setScanItems([]); setSupplier(""); setError(null); };
+  const handleClose = () => { reset(); onClose(); };
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target.result;
+      setPreview(dataUrl);
+      await scanReceipt(dataUrl.split(",")[1], file.type || "image/jpeg");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const scanReceipt = async (b64, mimeType) => {
+    setStep("scanning");
+    try {
+      const apiKey = getApiKey();
+      if (!apiKey) { setStep("upload"); setError(null); onNeedKey(); return; }
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {"Content-Type":"application/json", "x-api-key": apiKey, "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true"},
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          messages: [{
+            role: "user",
+            content: [
+              {type:"image", source:{type:"base64", media_type:mimeType, data:b64}},
+              {type:"text", text:"You are a receipt scanner for a food business cost calculator. Extract purchased items that could be food ingredients or packaging supplies. Return ONLY valid JSON, no markdown, no explanation: {\"supplier\":\"store name or empty string\",\"items\":[{\"name\":\"clean proper case name\",\"price\":12.50,\"unit\":\"kg\",\"qty\":1,\"confidence\":\"high\",\"flag\":\"\"}]} Rules: price=total price for that line item as number, unit must be one of [kg,g,litre,ml,piece,pack,tray,dozen,bottle,can,bunch,cup,tbsp,tsp], confidence=high if clearly readable or low if uncertain, flag=not ingredient if clearly not food or packaging like fees or taxes otherwise empty string. Skip totals taxes discounts. If receipt unreadable return {\"supplier\":\"\",\"items\":[],\"error\":\"Cannot read receipt\"}"}
+            ]
+          }]
+        })
+      });
+      const data = await res.json();
+      const text = data.content?.find(c => c.type === "text")?.text || "";
+      let parsed;
+      try { parsed = JSON.parse(text.replace(/```json|```/g,"").trim()); }
+      catch { throw new Error("Could not read receipt. Try a clearer photo."); }
+      if (parsed.error) throw new Error(parsed.error);
+      if (!parsed.items?.length) throw new Error("No ingredients found on this receipt.");
+      setSupplier(parsed.supplier || "");
+      setScanItems(parsed.items.map(item => ({
+        ...item, id:uid(), removed:false,
+        exists: existingIngredients.some(e => e.name.toLowerCase() === item.name.toLowerCase())
+      })));
+      setStep("review");
+    } catch(err) {
+      setError(err.message || "Something went wrong.");
+      setStep("upload");
+    }
+  };
+
+  const updateItem = (id, key, val) => setScanItems(p => p.map(i => i.id===id ? {...i,[key]:val} : i));
+  const toggleRemove = (id) => setScanItems(p => p.map(i => i.id===id ? {...i,removed:!i.removed} : i));
+  const activeCount = scanItems.filter(i => !i.removed).length;
+
+  const handleSave = () => {
+    onSave(scanItems.filter(i => !i.removed).map(i => ({
+      id:uid(), name:i.name, price:+i.price, unit:i.unit, supplier:supplier||"", exists:i.exists
+    })), supplier);
+    handleClose();
+  };
+
+  if (!open) return null;
+  return (
+    <>
+      <div className="kk-overlay" onClick={handleClose} />
+      <div className="kk-sheet">
+        <div className="kk-handle" />
+
+        {step === "upload" && (
+          <>
+            <div className="kk-sheet-title">📷 Scan Receipt</div>
+            <div className="kk-sheet-sub">Photo your receipt — AI extracts all ingredients</div>
+            <div className="scan-zone" style={{marginBottom:14}}>
+              <input type="file" accept="image/*" capture="environment" onChange={handleFile} />
+              <div style={{fontSize:40, marginBottom:10}}>🧾</div>
+              <div style={{fontWeight:700, fontSize:15, color:"var(--t1)", marginBottom:4}}>Tap to take photo</div>
+              <div style={{fontSize:12, color:"var(--t3)"}}>or choose from camera roll</div>
+            </div>
+            {error && (
+              <div style={{background:"rgba(244,112,112,.1)", border:"1px solid rgba(244,112,112,.3)", borderRadius:10, padding:"12px 14px", marginBottom:12, fontSize:13, color:"var(--red)"}}>
+                ⚠️ {error}
+              </div>
+            )}
+            <div className="card" style={{marginBottom:14, padding:"12px 14px"}}>
+              <div className="sec-label">Tips for best results</div>
+              {["Lay flat with good lighting","All text within frame","Avoid shadows over text","Works best with printed receipts"].map((t,i) => (
+                <div key={i} style={{fontSize:12, color:"var(--t2)", display:"flex", gap:8, marginBottom:i<3?4:0}}>
+                  <span style={{color:"var(--accent)"}}>▸</span>{t}
+                </div>
+              ))}
+            </div>
+            <button className="btn btn-g btn-full" onClick={handleClose}>Cancel</button>
+          </>
+        )}
+
+        {step === "scanning" && (
+          <div style={{textAlign:"center", padding:"24px 0 32px"}}>
+            {preview && <img src={preview} alt="" style={{width:"100%", borderRadius:10, maxHeight:160, objectFit:"cover", marginBottom:20}} />}
+            <div className="spinner" />
+            <div style={{fontFamily:"var(--display)", fontSize:18, fontStyle:"italic", color:"var(--t1)", marginBottom:6}}>Reading receipt...</div>
+            <div style={{fontSize:12, color:"var(--t3)"}}>Extracting ingredients and prices</div>
+          </div>
+        )}
+
+        {step === "review" && (
+          <>
+            <div className="kk-sheet-title">✅ Review Items</div>
+            <div className="kk-sheet-sub">{activeCount} item{activeCount!==1?"s":""} found · edit if needed · tap X to remove</div>
+            {preview && <img src={preview} alt="" style={{width:"100%", borderRadius:10, maxHeight:110, objectFit:"cover", marginBottom:14}} />}
+            {supplier && (
+              <div style={{marginBottom:14}}>
+                <Field label="Supplier / Store">
+                  <input value={supplier} onChange={e => setSupplier(e.target.value)} placeholder="e.g. NSK Trading" />
+                </Field>
+              </div>
+            )}
+            <div style={{marginBottom:12}}>
+              {scanItems.map(item => (
+                <div key={item.id} className={`scan-item-card${item.confidence==="low"||item.flag?" flagged":""}${item.removed?" removed":""}`}>
+                  <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:item.removed?0:10}}>
+                    <div style={{flex:1, marginRight:8}}>
+                      {item.removed
+                        ? <span style={{fontSize:13, color:"var(--t3)", textDecoration:"line-through"}}>{item.name}</span>
+                        : <input value={item.name} onChange={e => updateItem(item.id,"name",e.target.value)}
+                            style={{background:"var(--s3)", border:"1px solid var(--border)", borderRadius:8, padding:"8px 10px", color:"var(--t1)", fontSize:13, outline:"none", width:"100%"}} />
+                      }
+                    </div>
+                    <div style={{display:"flex", gap:5, alignItems:"center", flexShrink:0}}>
+                      {item.exists && !item.removed && <span className="badge badge-amber" style={{fontSize:8, padding:"1px 6px"}}>EXISTS</span>}
+                      {item.confidence==="low" && !item.removed && <span className="badge badge-amber" style={{fontSize:8, padding:"1px 6px"}}>UNSURE</span>}
+                      {item.flag==="not ingredient" && !item.removed && <span className="badge badge-red" style={{fontSize:8, padding:"1px 6px"}}>NON-FOOD</span>}
+                      <button onClick={() => toggleRemove(item.id)}
+                        style={{background:item.removed?"var(--s3)":"rgba(244,112,112,.1)", border:`1.5px solid ${item.removed?"var(--border)":"rgba(244,112,112,.3)"}`, borderRadius:7, padding:"4px 9px", color:item.removed?"var(--t3)":"var(--red)", fontSize:12, cursor:"pointer", fontWeight:700}}>
+                        {item.removed ? "Undo" : "X"}
+                      </button>
+                    </div>
+                  </div>
+                  {!item.removed && (
+                    <div style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8}}>
+                      <div className="scan-ifield">
+                        <label>Price ({currency})</label>
+                        <input type="number" value={item.price} onChange={e => updateItem(item.id,"price",e.target.value)} min={0} step="0.01" />
+                      </div>
+                      <div className="scan-ifield">
+                        <label>Qty</label>
+                        <input type="number" value={item.qty} onChange={e => updateItem(item.id,"qty",e.target.value)} min={0} step="0.1" />
+                      </div>
+                      <div className="scan-ifield">
+                        <label>Unit</label>
+                        <select value={item.unit} onChange={e => updateItem(item.id,"unit",e.target.value)}>
+                          {UNITS.map(u => <option key={u}>{u}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div style={{display:"flex", gap:8}}>
+              <button className="btn btn-p btn-full" onClick={handleSave} disabled={activeCount===0} style={{opacity:activeCount===0?.5:1}}>
+                💾 Save {activeCount} Ingredient{activeCount!==1?"s":""}
+              </button>
+              <button className="btn btn-g" onClick={reset}>Retry</button>
+            </div>
+          </>
+        )}
+      </div>
+    </>
+  );
+};
+
+// ── Guide ─────────────────────────────────────────────────
+const GuideTab = ({setTab}) => {
+  const steps = [
+    {step:1, title:"Business Profile",  desc:"Set biz type, currency, target cost % and channels.", icon:"🏪", tab:"profile"},
+    {step:2, title:"Add Ingredients",   desc:"Build ingredient library, manually or scan a receipt.", icon:"🥚", tab:"ingredients"},
+    {step:3, title:"Add Packaging",     desc:"Boxes, bags, napkins, all the extras.", icon:"📦", tab:"packaging"},
+    {step:4, title:"Build Recipes",     desc:"Pick ingredients, set qty and yield. Auto-calculates.", icon:"🍳", tab:"recipes"},
+    {step:5, title:"Set Prices",        desc:"Enter selling prices, see food cost per platform.", icon:"💰", tab:"recipes"},
+    {step:6, title:"Check Dashboard",   desc:"Top/bottom margins, avg food cost, full breakdown.", icon:"📊", tab:"dashboard"},
+  ];
+  const tips = [
+    "Update prices every restock",
+    "Include packaging, it eats margin silently",
+    "Add 5-10% wastage buffer",
+    "Stalls 25-35%, Cafes 28-35%, Restaurants 30-38%",
+    "Review lowest-margin items monthly",
+    "📷 Scan receipts to bulk-add ingredients instantly",
+  ];
+  return (
+    <div className="kk-page">
+      <div className="kk-ph"><div className="kk-ptitle">How to use</div></div>
+      <div style={{display:"flex", flexDirection:"column", gap:8, marginBottom:16}}>
+        {steps.map(s => (
+          <div key={s.step} className="card" onClick={() => setTab(s.tab)} style={{display:"flex", gap:12, alignItems:"flex-start", cursor:"pointer"}}>
+            <div style={{width:40, height:40, borderRadius:10, background:"var(--accent-bg)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0}}>{s.icon}</div>
+            <div style={{flex:1}}>
+              <div style={{display:"flex", alignItems:"center", gap:7, marginBottom:3}}>
+                <span style={{fontSize:9, fontWeight:800, color:"var(--accent)", fontFamily:"var(--mono)"}}>STEP {s.step}</span>
+                <span style={{fontSize:13, fontWeight:700, color:"var(--t1)"}}>{s.title}</span>
+              </div>
+              <p style={{margin:0, fontSize:12, color:"var(--t3)", lineHeight:1.5}}>{s.desc}</p>
+            </div>
+            <span style={{color:"var(--t3)", fontSize:15, alignSelf:"center"}}>›</span>
+          </div>
+        ))}
+      </div>
+      <div className="card">
+        <div style={{fontFamily:"var(--display)", fontSize:15, color:"var(--amber)", marginBottom:10, fontStyle:"italic"}}>💡 Pro Tips</div>
+        {tips.map((t,i) => (
+          <div key={i} style={{display:"flex", gap:8, fontSize:12, color:"var(--t2)", lineHeight:1.6, paddingBottom:i<tips.length-1?7:0, borderBottom:i<tips.length-1?"1px solid var(--border)":"none", marginBottom:i<tips.length-1?7:0}}>
+            <span style={{color:"var(--amber)", flexShrink:0}}>▸</span>{t}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ── Profile ───────────────────────────────────────────────
+const ProfileTab = ({profile, setProfile}) => {
+  const up = (k,v) => setProfile(p => ({...p,[k]:v}));
+  const upCh = (id,k,v) => setProfile(p => ({...p, channels:p.channels.map(c => c.id===id ? {...c,[k]:v} : c)}));
+  const addCh = () => setProfile(p => ({...p, channels:[...p.channels, {id:uid(), name:"", commission:0}]}));
+  const rmCh = id => setProfile(p => ({...p, channels:p.channels.filter(c => c.id!==id)}));
+  const bench = BENCHMARK[profile.type] || [28,35];
+  return (
+    <div className="kk-page">
+      <div className="kk-ph"><div className="kk-ptitle">Profile</div></div>
+      <div style={{display:"flex", flexDirection:"column", gap:12, marginBottom:18}}>
+        <Field label="Business Name"><input value={profile.name} onChange={e => up("name",e.target.value)} placeholder="e.g. Koridor Pancakes" /></Field>
+        <Field label="Business Type"><select value={profile.type} onChange={e => up("type",e.target.value)}>{BIZ_TYPES.map(t => <option key={t}>{t}</option>)}</select></Field>
+        <Field label="Currency"><select value={profile.currency} onChange={e => up("currency",e.target.value)}>{CURRENCIES.map(c => <option key={c}>{c}</option>)}</select></Field>
+        <Field label={`Target Food Cost % - Benchmark: ${bench[0]}-${bench[1]}%`}><input type="number" value={profile.targetCostPct} onChange={e => up("targetCostPct",+e.target.value)} min={1} max={100} /></Field>
+      </div>
+      <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10}}>
+        <div className="sec-label" style={{marginBottom:0}}>Sales Channels</div>
+        <button className="btn btn-s btn-sm" onClick={addCh}>+ Add</button>
+      </div>
+      {profile.channels.map(ch => (
+        <div key={ch.id} className="ch-row">
+          <input value={ch.name} onChange={e => upCh(ch.id,"name",e.target.value)} placeholder="Channel name" style={{flex:2}} />
+          <input type="number" value={ch.commission} onChange={e => upCh(ch.id,"commission",+e.target.value)} placeholder="%" min={0} max={100} style={{flex:1}} />
+          <button className="btn btn-d btn-sm" onClick={() => rmCh(ch.id)} style={{padding:"0 10px"}}>X</button>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ── Ingredients ───────────────────────────────────────────
+const IngredientsTab = ({ingredients, setIngredients, currency}) => {
+  const [sheet, setSheet] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
+  const [apiKeyOpen, setApiKeyOpen] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [toast, setToast] = useState(null);
+  const blank = {name:"", unit:"kg", price:"", supplier:""};
+  const [form, setForm] = useState(blank);
+
+  const open = item => {
+    setEditId(item?.id || null);
+    setForm(item ? {name:item.name, unit:item.unit, price:item.price, supplier:item.supplier} : blank);
+    setSheet(true);
+  };
+  const save = () => {
+    if (!form.name || !form.price) return;
+    if (editId) { setIngredients(p => p.map(i => i.id===editId ? {...i,...form,price:+form.price} : i)); }
+    else { setIngredients(p => [...p, {id:uid(),...form,price:+form.price}]); }
+    setSheet(false);
+  };
+  const showToast = msg => { setToast(msg); setTimeout(() => setToast(null), 3000); };
+  const handleScanSave = (items, supplier) => {
+    let added=0, updated=0;
+    setIngredients(prev => {
+      let next = [...prev];
+      items.forEach(item => {
+        const idx = next.findIndex(e => e.name.toLowerCase() === item.name.toLowerCase());
+        if (idx >= 0) { next[idx] = {...next[idx], price:item.price, supplier:supplier||next[idx].supplier}; updated++; }
+        else { next.push({id:uid(), name:item.name, price:item.price, unit:item.unit, supplier:supplier||""}); added++; }
+      });
+      return next;
+    });
+    const parts = [];
+    if (added) parts.push(`${added} added`);
+    if (updated) parts.push(`${updated} price updated`);
+    showToast("✅ " + parts.join(", "));
+  };
+
+  return (
+    <div className="kk-page">
+      {toast && <div className="toast">{toast}</div>}
+      <div className="kk-ph">
+        <div className="kk-ptitle">Ingredients</div>
+        <div style={{display:"flex", gap:7}}>
+          <button className="btn btn-amber btn-sm" onClick={() => setScanOpen(true)}>📷 Scan</button>
+          <button className="btn btn-p btn-sm" onClick={() => open(null)}>+ Add</button>
+        </div>
+      </div>
+      {ingredients.length === 0 ? (
+        <div>
+          <Empty msg="No ingredients yet." />
+          <div style={{display:"flex", flexDirection:"column", gap:10, marginTop:4}}>
+            <button className="btn btn-amber btn-full" style={{fontSize:14}} onClick={() => setScanOpen(true)}>📷 Scan a Receipt</button>
+            <button className="btn btn-s btn-full" onClick={() => open(null)}>+ Add Manually</button>
+          </div>
+        </div>
+      ) : (
+        <div style={{display:"flex", flexDirection:"column", gap:8}}>
+          {ingredients.map(i => (
+            <div key={i.id} className="card" style={{display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 14px"}}>
+              <div>
+                <div style={{fontWeight:700, fontSize:14, color:"var(--t1)"}}>{i.name}</div>
+                <div style={{fontSize:11, color:"var(--t3)", marginTop:2}}>{i.unit} · {i.supplier || "No supplier"}</div>
+              </div>
+              <div style={{display:"flex", alignItems:"center", gap:8}}>
+                <div style={{fontFamily:"var(--mono)", fontWeight:700, color:"var(--accent)", fontSize:14}}>{currency} {(+i.price).toFixed(2)}</div>
+                <button className="btn btn-g btn-sm" onClick={() => open(i)} style={{padding:"0 8px"}}>✎</button>
+                <button className="btn btn-d btn-sm" onClick={() => setIngredients(p => p.filter(x => x.id!==i.id))} style={{padding:"0 8px"}}>X</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <Sheet open={sheet} onClose={() => setSheet(false)} title={editId ? "Edit Ingredient" : "Add Ingredient"}>
+        <div style={{display:"flex", flexDirection:"column", gap:12}}>
+          <Field label="Name"><input value={form.name} onChange={e => setForm(f => ({...f,name:e.target.value}))} placeholder="e.g. All-Purpose Flour" /></Field>
+          <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10}}>
+            <Field label="Unit"><select value={form.unit} onChange={e => setForm(f => ({...f,unit:e.target.value}))}>{UNITS.map(u => <option key={u}>{u}</option>)}</select></Field>
+            <Field label={`Price (${currency})`}><input type="number" value={form.price} onChange={e => setForm(f => ({...f,price:e.target.value}))} placeholder="0.00" min={0} step="0.01" /></Field>
+          </div>
+          <Field label="Supplier (optional)"><input value={form.supplier} onChange={e => setForm(f => ({...f,supplier:e.target.value}))} placeholder="e.g. NSK Trading" /></Field>
+          <div style={{display:"flex", gap:8, marginTop:4}}>
+            <button className="btn btn-p btn-full" onClick={save}>{editId ? "Update" : "Add"}</button>
+            <button className="btn btn-g" onClick={() => setSheet(false)}>Cancel</button>
+          </div>
+        </div>
+      </Sheet>
+      <ReceiptScanner open={scanOpen} onClose={() => setScanOpen(false)} onSave={handleScanSave} currency={currency} existingIngredients={ingredients} onNeedKey={() => { setScanOpen(false); setApiKeyOpen(true); }} />
+      <ApiKeyModal open={apiKeyOpen} onClose={() => setApiKeyOpen(false)} onSave={() => setScanOpen(true)} />
+    </div>
+  );
+};
+
+// ── Packaging ─────────────────────────────────────────────
+const PackagingTab = ({packaging, setPackaging, currency}) => {
+  const [sheet, setSheet] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [form, setForm] = useState({name:"", price:""});
+  const open = item => { setEditId(item?.id||null); setForm(item ? {name:item.name,price:item.price} : {name:"",price:""}); setSheet(true); };
+  const save = () => {
+    if (!form.name || !form.price) return;
+    if (editId) { setPackaging(p => p.map(i => i.id===editId ? {...i,...form,price:+form.price} : i)); }
+    else { setPackaging(p => [...p, {id:uid(),...form,price:+form.price}]); }
+    setSheet(false);
+  };
+  return (
+    <div className="kk-page">
+      <div className="kk-ph">
+        <div className="kk-ptitle">Packaging</div>
+        <button className="btn btn-p btn-sm" onClick={() => open(null)}>+ Add</button>
+      </div>
+      {packaging.length === 0 ? <Empty msg="No packaging yet. Add takeaway boxes, bags, napkins, etc." /> : (
+        <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:8}}>
+          {packaging.map(p => (
+            <div key={p.id} className="card" style={{padding:12}}>
+              <div style={{fontWeight:700, fontSize:13, color:"var(--t1)", marginBottom:3}}>{p.name}</div>
+              <div style={{fontFamily:"var(--mono)", color:"var(--accent)", fontSize:12}}>{currency} {(+p.price).toFixed(2)}/pc</div>
+              <div style={{display:"flex", gap:6, marginTop:10}}>
+                <button className="btn btn-g btn-sm" onClick={() => open(p)} style={{flex:1,padding:0,fontSize:11}}>Edit</button>
+                <button className="btn btn-d btn-sm" onClick={() => setPackaging(x => x.filter(i => i.id!==p.id))} style={{flex:1,padding:0,fontSize:11}}>Del</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <Sheet open={sheet} onClose={() => setSheet(false)} title={editId ? "Edit Packaging" : "Add Packaging"}>
+        <div style={{display:"flex", flexDirection:"column", gap:12}}>
+          <Field label="Item Name"><input value={form.name} onChange={e => setForm(f => ({...f,name:e.target.value}))} placeholder="e.g. Takeaway Box" /></Field>
+          <Field label={`Cost per piece (${currency})`}><input type="number" value={form.price} onChange={e => setForm(f => ({...f,price:e.target.value}))} placeholder="0.00" min={0} step="0.01" /></Field>
+          <div style={{display:"flex", gap:8, marginTop:4}}>
+            <button className="btn btn-p btn-full" onClick={save}>{editId ? "Update" : "Add"}</button>
+            <button className="btn btn-g" onClick={() => setSheet(false)}>Cancel</button>
+          </div>
+        </div>
+      </Sheet>
+    </div>
+  );
+};
+
+// ── Recipes ───────────────────────────────────────────────
+const RecipesTab = ({recipes, setRecipes, ingredients, packaging, profile}) => {
+  const [sheet, setSheet] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [expanded, setExpanded] = useState(null);
+  const blank = {name:"", category:"Main", yield:1, sellingPrice:"", wastage:5, labourMin:0, labourRate:0, items:[], pkgs:[]};
+  const [form, setForm] = useState(blank);
+  const cur = profile.currency;
+
+  const open = r => { setEditId(r?.id||null); setForm(r ? {...r,items:[...r.items],pkgs:[...r.pkgs]} : {...blank,items:[],pkgs:[]}); setSheet(true); };
+  const addItem = () => setForm(f => ({...f, items:[...f.items, {ingredientId:ingredients[0]?.id||"", qty:""}]}));
+  const upItem = (i,k,v) => setForm(f => ({...f, items:f.items.map((it,idx) => idx===i ? {...it,[k]:v} : it)}));
+  const rmItem = i => setForm(f => ({...f, items:f.items.filter((_,idx) => idx!==i)}));
+  const addPkg = () => setForm(f => ({...f, pkgs:[...f.pkgs, {packagingId:packaging[0]?.id||"", qty:1}]}));
+  const upPkg = (i,k,v) => setForm(f => ({...f, pkgs:f.pkgs.map((p,idx) => idx===i ? {...p,[k]:v} : p)}));
+  const rmPkg = i => setForm(f => ({...f, pkgs:f.pkgs.filter((_,idx) => idx!==i)}));
+  const save = () => {
+    if (!form.name || !form.sellingPrice) return;
+    const data = {...form, sellingPrice:+form.sellingPrice, yield:+form.yield||1, wastage:+form.wastage, labourMin:+form.labourMin, labourRate:+form.labourRate, items:form.items.map(it => ({...it,qty:+it.qty}))};
+    if (editId) { setRecipes(p => p.map(r => r.id===editId ? {...r,...data} : r)); }
+    else { setRecipes(p => [...p, {id:uid(),...data}]); }
+    setSheet(false);
+  };
+
+  return (
+    <div className="kk-page">
+      <div className="kk-ph">
+        <div className="kk-ptitle">Recipes</div>
+        <button className="btn btn-p btn-sm" onClick={() => open(null)} disabled={!ingredients.length}>+ Add</button>
+      </div>
+      {ingredients.length === 0 && <div className="card" style={{borderColor:"var(--amber)", marginBottom:12}}><p style={{color:"var(--amber)", fontSize:12, margin:0}}>⚠️ Add ingredients first.</p></div>}
+      {recipes.length === 0 ? <Empty msg="No recipes yet." /> : (
+        <div style={{display:"flex", flexDirection:"column", gap:8}}>
+          {recipes.map(r => {
+            const c = calcRecipe(r, ingredients, packaging, profile.targetCostPct);
+            const isOpen = expanded === r.id;
+            return (
+              <div key={r.id} className="r-card">
+                <div className="r-head" onClick={() => setExpanded(isOpen ? null : r.id)}>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700, fontSize:14, color:"var(--t1)"}}>{r.name}</div>
+                    <div style={{display:"flex", gap:7, marginTop:4, alignItems:"center"}}>
+                      <span className="badge">{r.category}</span>
+                      <span style={{fontSize:10, color:"var(--t3)"}}>Yield: {r.yield}</span>
+                    </div>
+                  </div>
+                  <div style={{display:"flex", gap:14, alignItems:"center"}}>
+                    <div style={{textAlign:"right"}}>
+                      <div style={{fontSize:9, color:"var(--t3)", fontWeight:700, marginBottom:1}}>FOOD COST</div>
+                      <Pill val={c.costPct} target={profile.targetCostPct} />
+                    </div>
+                    <div style={{textAlign:"right"}}>
+                      <div style={{fontSize:9, color:"var(--t3)", fontWeight:700, marginBottom:1}}>PROFIT</div>
+                      <div style={{fontFamily:"var(--mono)", fontWeight:700, fontSize:13, color:c.grossProfit>=0?"var(--green)":"var(--red)"}}>{cur} {c.grossProfit.toFixed(2)}</div>
+                    </div>
+                    <span style={{color:"var(--t3)", fontSize:16, transform:isOpen?"rotate(180deg)":"none", transition:"transform .2s"}}>▾</span>
+                  </div>
+                </div>
+                {isOpen && (
+                  <div className="r-body">
+                    <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, paddingTop:12, paddingBottom:12}}>
+                      {[
+                        ["Ing. Cost",    `${cur} ${c.ingCost.toFixed(2)}`],
+                        ["Pkg Cost",     `${cur} ${c.pkgCost.toFixed(2)}`],
+                        [`Wastage ${r.wastage}%`, `${cur} ${c.wastageAmt.toFixed(2)}`],
+                        ["Labour",       `${cur} ${c.labourCost.toFixed(2)}`],
+                        ["Total Cost",   `${cur} ${c.totalCost.toFixed(2)}`],
+                        ["Selling Price",`${cur} ${(+r.sellingPrice).toFixed(2)}`],
+                        ["Suggested",    `${cur} ${c.suggestedPrice.toFixed(2)}`],
+                        ["Margin",       `${c.margin.toFixed(1)}%`],
+                      ].map(([l,v],i) => (
+                        <div key={i} style={{background:"var(--s2)", borderRadius:9, padding:"9px 11px"}}>
+                          <div style={{fontSize:9, color:"var(--t3)", fontWeight:700, marginBottom:3}}>{l.toUpperCase()}</div>
+                          <div style={{fontFamily:"var(--mono)", fontWeight:700, fontSize:13, color:l==="Selling Price"?"var(--accent)":l==="Suggested"?"var(--amber)":l==="Margin"?(c.margin>=0?"var(--green)":"var(--red)"):"var(--t1)"}}>{v}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="sec-label">Platform Margins</div>
+                    <div style={{display:"flex", flexDirection:"column", gap:7, marginBottom:12}}>
+                      {profile.channels.map(ch => {
+                        const netRev    = r.sellingPrice * (1 - ch.commission/100);
+                        const netProfit = netRev - c.totalCost;
+                        const netMargin = netRev > 0 ? (netProfit/netRev)*100 : 0;
+                        return (
+                          <div key={ch.id} style={{background:"var(--s2)", borderRadius:9, padding:"10px 12px", display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+                            <div>
+                              <div style={{fontSize:12, fontWeight:700, color:"var(--t2)"}}>{ch.name}</div>
+                              <div style={{fontSize:10, color:"var(--t3)"}}>{ch.commission}% commission</div>
+                            </div>
+                            <div style={{textAlign:"right"}}>
+                              <div style={{fontFamily:"var(--mono)", fontWeight:700, fontSize:15, color:netProfit>=0?"var(--green)":"var(--red)"}}>{cur} {netProfit.toFixed(2)}</div>
+                              <div style={{fontSize:10, color:"var(--t3)"}}>{netMargin.toFixed(1)}% margin</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div style={{display:"flex", gap:8}}>
+                      <button className="btn btn-s btn-sm" style={{flex:1}} onClick={() => open(r)}>Edit</button>
+                      <button className="btn btn-d btn-sm" onClick={() => setRecipes(p => p.filter(x => x.id!==r.id))}>Delete</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <Sheet open={sheet} onClose={() => setSheet(false)} title={editId ? "Edit Recipe" : "New Recipe"}>
+        <div style={{display:"flex", flexDirection:"column", gap:12}}>
+          <div style={{display:"grid", gridTemplateColumns:"2fr 1fr", gap:10}}>
+            <Field label="Recipe Name"><input value={form.name} onChange={e => setForm(f => ({...f,name:e.target.value}))} placeholder="e.g. Original Pancake" /></Field>
+            <Field label="Category"><select value={form.category} onChange={e => setForm(f => ({...f,category:e.target.value}))}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></Field>
+          </div>
+          <div style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10}}>
+            <Field label="Yield"><input type="number" value={form.yield} onChange={e => setForm(f => ({...f,yield:e.target.value}))} min={1} /></Field>
+            <Field label={`Price (${cur})`}><input type="number" value={form.sellingPrice} onChange={e => setForm(f => ({...f,sellingPrice:e.target.value}))} min={0} step="0.1" /></Field>
+            <Field label="Wastage %"><input type="number" value={form.wastage} onChange={e => setForm(f => ({...f,wastage:e.target.value}))} min={0} max={50} /></Field>
+          </div>
+          <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10}}>
+            <Field label="Labour (min)"><input type="number" value={form.labourMin} onChange={e => setForm(f => ({...f,labourMin:e.target.value}))} min={0} /></Field>
+            <Field label={`Rate (${cur}/hr)`}><input type="number" value={form.labourRate} onChange={e => setForm(f => ({...f,labourRate:e.target.value}))} min={0} step="0.5" /></Field>
+          </div>
+          <div>
+            <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8}}>
+              <div className="sec-label" style={{marginBottom:0}}>Ingredients</div>
+              <button className="btn btn-s btn-sm" onClick={addItem}>+ Add</button>
+            </div>
+            {form.items.map((it,i) => (
+              <div key={i} className="ing-row">
+                <select value={it.ingredientId} onChange={e => upItem(i,"ingredientId",e.target.value)} style={{flex:2}}>
+                  {ingredients.map(ing => <option key={ing.id} value={ing.id}>{ing.name} ({cur}{(+ing.price).toFixed(2)}/{ing.unit})</option>)}
+                </select>
+                <input type="number" value={it.qty} onChange={e => upItem(i,"qty",e.target.value)} placeholder="Qty" min={0} step="0.01" style={{flex:1}} />
+                <button onClick={() => rmItem(i)} style={{background:"none", border:"none", color:"var(--red)", cursor:"pointer", fontSize:17, padding:"2px 4px"}}>X</button>
+              </div>
+            ))}
+          </div>
+          {packaging.length > 0 && (
+            <div>
+              <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8}}>
+                <div className="sec-label" style={{marginBottom:0}}>Packaging</div>
+                <button className="btn btn-s btn-sm" onClick={addPkg}>+ Add</button>
+              </div>
+              {form.pkgs.map((p,i) => (
+                <div key={i} className="ing-row">
+                  <select value={p.packagingId} onChange={e => upPkg(i,"packagingId",e.target.value)} style={{flex:2}}>
+                    {packaging.map(pk => <option key={pk.id} value={pk.id}>{pk.name} ({cur}{(+pk.price).toFixed(2)})</option>)}
+                  </select>
+                  <input type="number" value={p.qty} onChange={e => upPkg(i,"qty",+e.target.value)} placeholder="Qty" min={1} style={{flex:1}} />
+                  <button onClick={() => rmPkg(i)} style={{background:"none", border:"none", color:"var(--red)", cursor:"pointer", fontSize:17, padding:"2px 4px"}}>X</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{display:"flex", gap:8, paddingTop:4}}>
+            <button className="btn btn-p btn-full" onClick={save}>{editId ? "Update Recipe" : "Add Recipe"}</button>
+            <button className="btn btn-g" onClick={() => setSheet(false)}>Cancel</button>
+          </div>
+        </div>
+      </Sheet>
+    </div>
+  );
+};
+
+// ── Dashboard ─────────────────────────────────────────────
+const DashboardTab = ({recipes, ingredients, packaging, profile}) => {
+  const cur = profile.currency;
+  const calcAll = useMemo(() => recipes.map(r => ({...r, ...calcRecipe(r, ingredients, packaging, profile.targetCostPct)})), [recipes, ingredients, packaging, profile.targetCostPct]);
+  if (recipes.length === 0) return <Empty msg="Add recipes to see analytics." />;
+  const avg     = calcAll.reduce((s,r) => s + r.costPct, 0) / calcAll.length;
+  const top     = [...calcAll].sort((a,b) => b.margin - a.margin).slice(0,5);
+  const bot     = [...calcAll].sort((a,b) => a.margin - b.margin).slice(0,5);
+  const healthy = calcAll.filter(r => r.costPct <= profile.targetCostPct).length;
+  const best    = top[0]?.margin || 100;
+  return (
+    <div className="kk-page">
+      <div className="kk-ph"><div className="kk-ptitle">Dashboard</div></div>
+      <div className="stats">
+        <div className="stat"><div className="slabel">Recipes</div><div className="sval">{recipes.length}</div></div>
+        <div className="stat"><div className="slabel">Avg Food Cost</div><div className="sval" style={{color:avg<=profile.targetCostPct?"var(--green)":"var(--red)"}}>{avg.toFixed(1)}%</div><div className="ssub">Target: {profile.targetCostPct}%</div></div>
+        <div className="stat"><div className="slabel">Healthy</div><div className="sval" style={{color:"var(--green)"}}>{healthy}/{recipes.length}</div><div className="ssub">Under {profile.targetCostPct}% FC</div></div>
+        <div className="stat"><div className="slabel">Ingredients</div><div className="sval">{ingredients.length}</div><div className="ssub">in library</div></div>
+      </div>
+      <div className="card" style={{marginBottom:12}}>
+        <div style={{fontFamily:"var(--display)", fontSize:15, color:"var(--green)", marginBottom:12, fontStyle:"italic"}}>🏆 Top Margins</div>
+        {top.map((r,i) => (
+          <div key={r.id} style={{marginBottom:i<top.length-1?10:0}}>
+            <div style={{display:"flex", justifyContent:"space-between", marginBottom:4}}>
+              <span style={{fontSize:12, fontWeight:600, color:"var(--t1)"}}>{r.name}</span>
+              <span style={{fontFamily:"var(--mono)", fontWeight:700, color:"var(--green)", fontSize:12}}>{r.margin.toFixed(1)}%</span>
+            </div>
+            <div className="prog-track"><div className="prog-fill" style={{width:`${Math.max(0,(r.margin/best)*100)}%`, background:"var(--green)"}} /></div>
+          </div>
+        ))}
+      </div>
+      <div className="card" style={{marginBottom:12}}>
+        <div style={{fontFamily:"var(--display)", fontSize:15, color:"var(--red)", marginBottom:12, fontStyle:"italic"}}>⚠️ Lowest Margins</div>
+        {bot.map((r,i) => (
+          <div key={r.id} style={{marginBottom:i<bot.length-1?10:0}}>
+            <div style={{display:"flex", justifyContent:"space-between", marginBottom:4}}>
+              <span style={{fontSize:12, fontWeight:600, color:"var(--t1)"}}>{r.name}</span>
+              <span style={{fontFamily:"var(--mono)", fontWeight:700, color:r.margin<0?"var(--red)":"var(--amber)", fontSize:12}}>{r.margin.toFixed(1)}%</span>
+            </div>
+            <div className="prog-track"><div className="prog-fill" style={{width:`${Math.max(0,Math.min(100,(r.margin/best)*100))}%`, background:r.margin<0?"var(--red)":"var(--amber)"}} /></div>
+          </div>
+        ))}
+      </div>
+      <div className="card">
+        <div style={{fontFamily:"var(--display)", fontSize:15, color:"var(--t1)", marginBottom:12, fontStyle:"italic"}}>📋 Full Menu</div>
+        {[...calcAll].sort((a,b) => b.margin - a.margin).map(r => (
+          <div key={r.id} className="menu-card">
+            <div style={{display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:7}}>
+              <div>
+                <div style={{fontWeight:700, fontSize:13, color:"var(--t1)"}}>{r.name}</div>
+                <span className="badge" style={{marginTop:3, display:"inline-block"}}>{r.category}</span>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontFamily:"var(--mono)", fontWeight:700, fontSize:15, color:r.grossProfit>=0?"var(--green)":"var(--red)"}}>{cur} {r.grossProfit.toFixed(2)}</div>
+                <div style={{fontSize:10, color:"var(--t3)"}}>profit/serving</div>
+              </div>
+            </div>
+            <div style={{display:"flex", gap:10, flexWrap:"wrap"}}>
+              <div><span style={{fontSize:9, color:"var(--t3)"}}>COST </span><span style={{fontFamily:"var(--mono)", fontSize:12, color:"var(--t2)"}}>{cur}{r.totalCost.toFixed(2)}</span></div>
+              <div><span style={{fontSize:9, color:"var(--t3)"}}>PRICE </span><span style={{fontFamily:"var(--mono)", fontSize:12, color:"var(--t1)"}}>{cur}{(+r.sellingPrice).toFixed(2)}</span></div>
+              <div><span style={{fontSize:9, color:"var(--t3)"}}>FC </span><Pill val={r.costPct} target={profile.targetCostPct} /></div>
+            </div>
+            {profile.channels.length > 0 && (
+              <div style={{display:"flex", gap:6, marginTop:8, flexWrap:"wrap"}}>
+                {profile.channels.map(ch => {
+                  const net = r.sellingPrice * (1 - ch.commission/100) - r.totalCost;
+                  return <div key={ch.id} style={{background:"var(--s3)", borderRadius:7, padding:"4px 9px", fontSize:10}}><span style={{color:"var(--t3)"}}>{ch.name}: </span><span style={{fontFamily:"var(--mono)", fontWeight:700, color:net>=0?"var(--green)":"var(--red)"}}>{cur}{net.toFixed(2)}</span></div>;
+                })}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ── App ───────────────────────────────────────────────────
+function App() {
+  const saved = loadData();
+  const [tab,         setTab]     = useState("guide");
+  const [profile,     setProfile] = useState(saved?.profile     || defaultProfile);
+  const [ingredients, setIngred]  = useState(saved?.ingredients || []);
+  const [packaging,   setPacking] = useState(saved?.packaging   || []);
+  const [recipes,     setRecipes] = useState(saved?.recipes     || []);
+  const [savePing,    setSavePing] = useState(false);
+  const [apiKeyOpen,  setApiKeyOpen] = useState(false);
+
+  useEffect(() => {
+    saveData({profile, ingredients, packaging, recipes});
+    setSavePing(true);
+    const t = setTimeout(() => setSavePing(false), 1200);
+    return () => clearTimeout(t);
+  }, [profile, ingredients, packaging, recipes]);
+
+  return (
+    <div style={{height:"100dvh", display:"flex", flexDirection:"column", background:"var(--s0)"}}>
+      <div className="kk-appbar">
+        <div className="kk-logo">🍳</div>
+        <div>
+          <div className="kk-appname">KiraKos</div>
+          <div className="kk-appsub">Food Cost Calculator</div>
+        </div>
+        <div className="kk-barright" style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{textAlign:"right"}}>
+            {profile.name && <div style={{color:"var(--t2)", fontWeight:600, fontSize:11}}>{profile.name}</div>}
+            <div style={{color:"var(--t3)"}}>{profile.type} · {profile.currency} · {profile.targetCostPct}%</div>
+            <div style={{fontSize:9, color:savePing?"var(--green)":"var(--t3)", transition:"color .3s", marginTop:1}}>
+              {savePing ? "✓ Saved" : "Auto-saving"}
+            </div>
+          </div>
+          <button onClick={() => setApiKeyOpen(true)} title="API Key Settings"
+            style={{background:"var(--s2)",border:"1px solid var(--border)",borderRadius:8,padding:"6px 8px",color:getApiKey()?"var(--green)":"var(--amber)",fontSize:14,cursor:"pointer",flexShrink:0}}>
+            🔑
+          </button>
+        </div>
+      </div>
+
+      <div className="kk-scroll" style={{paddingBottom:"calc(var(--tab-h) + 16px)"}}>
+        {tab === "guide"       && <GuideTab setTab={setTab} />}
+        {tab === "profile"     && <ProfileTab profile={profile} setProfile={setProfile} />}
+        {tab === "ingredients" && <IngredientsTab ingredients={ingredients} setIngredients={setIngred} currency={profile.currency} />}
+        {tab === "packaging"   && <PackagingTab packaging={packaging} setPackaging={setPacking} currency={profile.currency} />}
+        {tab === "recipes"     && <RecipesTab recipes={recipes} setRecipes={setRecipes} ingredients={ingredients} packaging={packaging} profile={profile} />}
+        {tab === "dashboard"   && <DashboardTab recipes={recipes} ingredients={ingredients} packaging={packaging} profile={profile} />}
+      </div>
+
+      <div className="kk-tabbar">
+        {TABS.map(t => (
+          <button key={t.key} className={`kk-tab ${tab===t.key?"active":""}`} onClick={() => setTab(t.key)}>
+            <span className="ico">{t.icon}</span>
+            <span className="lbl">{t.label}</span>
+          </button>
+        ))}
+      </div>
+      <ApiKeyModal open={apiKeyOpen} onClose={() => setApiKeyOpen(false)} onSave={() => {}} />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
