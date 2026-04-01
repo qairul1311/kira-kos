@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f1117" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="KiraKos" />
+  <title>KiraKos</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    :root {
+      --d: 'Instrument Serif', serif;
+      --b: 'DM Sans', sans-serif;
+      --m: 'JetBrains Mono', monospace;
+      --s0: #0f1117; --s1: #161920; --s2: #1d2028; --s3: #242731;
+      --br: #2c303d;
+      --t1: #edf0f7; --t2: #9096aa; --t3: #565c70;
+      --ac: #e8913a; --ac2: #d4782a; --acb: rgba(232,145,58,.1);
+      --gn: #2dd4a0; --rd: #f47070; --am: #f5c144;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html { height: 100%; }
+    body {
+      /* THE FIX: body is the scroll container, no overflow:hidden anywhere above sheets */
+      height: 100%;
+      background: var(--s0);
+      font-family: var(--b);
+      color: var(--t1);
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior: none;
+    }
+    input, select, button { font-family: var(--b); }
+    input[type=number]::-webkit-inner-spin-button { opacity: .3; }
+    ::-webkit-scrollbar { display: none; }
+    * { scrollbar-width: none; }
+
+    /* ── LAYOUT: simple flex column, NO overflow:hidden on wrappers ── */
+    #wrap {
+      display: flex;
+      flex-direction: column;
+      /* Use svh (small viewport height) - supported iOS 15.4+, excludes browser chrome */
+      height: 100svh;
+      height: 100vh; /* fallback */
+      height: 100svh; /* override with svh if supported */
+      background: var(--s0);
+    }
+
+    .topbar {
+      flex-shrink: 0;
+      background: var(--s1);
+      border-bottom: 1px solid var(--br);
+      padding: 12px 16px;
+      padding-top: max(12px, env(safe-area-inset-top));
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      /* NO overflow:hidden */
+    }
+
+    .scroll-area {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      padding: 0 16px 20px;
+      /* NO overflow:hidden — overflow:auto is fine, fixed elements escape this */
+    }
+
+    .tabbar {
+      flex-shrink: 0;
+      background: var(--s1);
+      border-top: 1px solid var(--br);
+      display: flex;
+      padding-top: 8px;
+      padding-bottom: max(8px, env(safe-area-inset-bottom));
+      /* NO overflow:hidden */
+    }
+    .tab {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+      background: none; border: none; cursor: pointer; padding: 4px 2px;
+    }
+    .tab .ico { font-size: 22px; line-height: 1; transition: transform .15s; }
+    .tab .lbl { font-size: 9px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; }
+    .tab.on .ico { transform: scale(1.18); }
+    .tab.on .lbl { color: var(--ac); }
+    .tab:not(.on) .lbl { color: var(--t3); }
+
+    /* ── SHEETS: position:fixed works because NO ancestor has overflow:hidden ── */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.72);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: 900;
+    }
+    .sheet {
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      background: var(--s1);
+      border-radius: 22px 22px 0 0;
+      border-top: 1px solid var(--br);
+      max-height: 90svh;
+      max-height: 90vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 0 18px;
+      padding-bottom: max(24px, env(safe-area-inset-bottom));
+      z-index: 901;
+      animation: slideup .28s cubic-bezier(.22,1,.36,1) both;
+    }
+    @keyframes slideup { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .sheet-handle { width: 36px; height: 4px; background: var(--br); border-radius: 2px; margin: 12px auto 18px; }
+    .sheet-title { font-family: var(--d); font-size: 20px; color: var(--t1); font-style: italic; margin-bottom: 5px; }
+    .sheet-sub { font-size: 12px; color: var(--t3); margin-bottom: 18px; }
+
+    .toast {
+      position: fixed;
+      top: max(70px, calc(env(safe-area-inset-top) + 60px));
+      left: 16px; right: 16px;
+      background: var(--gn); color: #071a0f;
+      border-radius: 10px; padding: 11px 14px;
+      font-size: 13px; font-weight: 700; text-align: center;
+      z-index: 950;
+      animation: fadein .2s ease;
+    }
+    @keyframes fadein { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+
+    /* ── PAGE ── */
+    .page { animation: pagein .2s ease both; }
+    @keyframes pagein { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .ph {
+      position: sticky; top: 0;
+      background: var(--s0); z-index: 10;
+      padding: 14px 0 10px;
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    }
+    .ptitle { font-family: var(--d); font-size: 26px; color: var(--t1); font-style: italic; }
+
+    /* ── FORMS ── */
+    .fld { display: flex; flex-direction: column; gap: 5px; }
+    .fld label { font-size: 10px; font-weight: 700; color: var(--t3); text-transform: uppercase; letter-spacing: 1px; }
+    .fld input, .fld select {
+      background: var(--s2); border: 1.5px solid var(--br); border-radius: 10px;
+      padding: 13px; color: var(--t1); font-size: 15px; outline: none;
+      width: 100%; transition: border-color .18s; -webkit-appearance: none;
+    }
+    .fld input:focus, .fld select:focus { border-color: var(--ac); }
+
+    /* ── BUTTONS ── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      border-radius: 12px; font-size: 14px; font-weight: 700;
+      cursor: pointer; transition: all .14s; min-height: 50px; padding: 0 20px; border: none;
+    }
+    .bp  { background: var(--ac);  color: #fff; }
+    .bp:active { background: var(--ac2); }
+    .bs  { background: var(--acb); color: var(--ac);  border: 1.5px solid var(--ac); }
+    .bd  { background: rgba(244,112,112,.08); color: var(--rd); border: 1.5px solid rgba(244,112,112,.25); }
+    .bg  { background: var(--s2);  color: var(--t2);  border: 1.5px solid var(--br); }
+    .bam { background: rgba(245,193,68,.12); color: var(--am); border: 1.5px solid rgba(245,193,68,.35); }
+    .sm  { min-height: 38px; padding: 0 14px; font-size: 12px; border-radius: 10px; }
+    .fw  { width: 100%; }
+
+    /* ── CARDS ── */
+    .card { background: var(--s1); border: 1px solid var(--br); border-radius: 14px; padding: 16px; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .stat { background: var(--s2); border: 1px solid var(--br); border-radius: 12px; padding: 14px; }
+    .slbl { font-size: 9px; font-weight: 700; color: var(--t3); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 5px; }
+    .sval { font-family: var(--m); font-size: 24px; font-weight: 700; line-height: 1; }
+    .ssub { font-size: 10px; color: var(--t3); margin-top: 3px; }
+    .badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 9px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; background: var(--acb); color: var(--ac); }
+    .bam-badge { background: rgba(245,193,68,.1); color: var(--am); }
+    .brd-badge { background: rgba(244,112,112,.1); color: var(--rd); }
+    .pt { height: 5px; background: var(--s3); border-radius: 3px; overflow: hidden; margin-top: 5px; }
+    .pf { height: 100%; border-radius: 3px; transition: width .5s; }
+    .empty { text-align: center; padding: 50px 20px; color: var(--t3); }
+    .empty-ico { font-size: 40px; margin-bottom: 12px; opacity: .4; }
+    .empty-msg { font-size: 13px; line-height: 1.6; }
+    .slb { font-size: 10px; font-weight: 700; color: var(--t3); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .ir { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .ir select, .ir input { background: var(--s2); border: 1.5px solid var(--br); border-radius: 9px; padding: 11px 9px; color: var(--t1); font-size: 13px; outline: none; }
+    .rc { background: var(--s1); border: 1px solid var(--br); border-radius: 14px; overflow: hidden; }
+    .rh { padding: 14px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+    .rb { padding: 0 14px 14px; border-top: 1px solid var(--br); }
+    .cr { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .cr input { background: var(--s3); border: 1px solid var(--br); border-radius: 8px; padding: 11px 10px; color: var(--t1); font-size: 14px; outline: none; }
+    .mc { background: var(--s2); border-radius: 11px; padding: 12px; margin-bottom: 8px; }
+
+    /* ── SCANNER ── */
+    .szn { border: 2px dashed var(--br); border-radius: 14px; padding: 32px 20px; text-align: center; cursor: pointer; background: var(--s2); position: relative; overflow: hidden; }
+    .szn:active { border-color: var(--ac); background: var(--acb); }
+    .szn input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; font-size: 0; }
+    .si { background: var(--s2); border: 1.5px solid var(--br); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+    .si.flag { border-color: rgba(245,193,68,.4); }
+    .si.gone { opacity: .4; }
+    .sf { display: flex; flex-direction: column; gap: 4px; }
+    .sf label { font-size: 9px; font-weight: 700; color: var(--t3); text-transform: uppercase; letter-spacing: .8px; }
+    .sf input, .sf select { background: var(--s3); border: 1px solid var(--br); border-radius: 8px; padding: 9px 10px; color: var(--t1); font-size: 13px; outline: none; width: 100%; -webkit-appearance: none; }
+    .spin { width: 28px; height: 28px; border: 3px solid var(--br); border-top-color: var(--ac); border-radius: 50%; animation: spinning .7s linear infinite; margin: 0 auto 14px; }
+    @keyframes spinning { to { transform: rotate(360deg); } }
+    .pbar-w { height: 6px; background: var(--s3); border-radius: 3px; overflow: hidden; margin: 8px 0 4px; }
+    .pbar   { height: 100%; background: var(--ac); border-radius: 3px; transition: width .3s; }
+
+    /* ── APP LOGO ── */
+    .logo { width: 32px; height: 32px; border-radius: 9px; background: linear-gradient(135deg, var(--ac), var(--ac2)); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+    .appname { font-family: var(--d); font-size: 20px; color: var(--t1); font-style: italic; line-height: 1; }
+    .appsub  { font-size: 9px; color: var(--t3); letter-spacing: .5px; margin-top: 2px; }
+    .barright { margin-left: auto; font-size: 10px; color: var(--t3); text-align: right; line-height: 1.6; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useMemo, useEffect } = React;
+
+const CURRENCIES = ["MYR","IDR","SGD","PHP","THB","USD"];
+const BIZ_TYPES  = ["Stall","Cafe","Restaurant","Cloud Kitchen","Food Truck","Bakery","Catering"];
+const UNITS      = ["kg","g","litre","ml","piece","pack","tray","dozen","bottle","can","bunch","cup","tbsp","tsp"];
+const CATEGORIES = ["Main","Side","Drink","Dessert","Combo","Add-on","Snack"];
+const BENCHMARK  = {"Stall":[25,35],"Cafe":[28,35],"Restaurant":[30,38],"Cloud Kitchen":[25,33],"Food Truck":[25,35],"Bakery":[25,35],"Catering":[30,40]};
+const uid = () => Math.random().toString(36).slice(2,9);
+const TABS = [
+  {key:"guide",       label:"Guide",   icon:"📖"},
+  {key:"profile",     label:"Profile", icon:"🏪"},
+  {key:"ingredients", label:"Ingred.", icon:"🥚"},
+  {key:"packaging",   label:"Pack.",   icon:"📦"},
+  {key:"recipes",     label:"Recipes", icon:"🍳"},
+  {key:"dashboard",   label:"Stats",   icon:"📊"},
+];
+const defaultProfile = {
+  name:"", type:"Stall", currency:"MYR", targetCostPct:30,
+  channels:[
+    {id:uid(),name:"Walk-in",commission:0},
+    {id:uid(),name:"GrabFood",commission:30},
+    {id:uid(),name:"Foodpanda",commission:25},
+  ]
+};
+
+// ── Storage ───────────────────────────────────────────────
+const KEY = "kirakos_v1";
+const loadData = () => { try { const d=localStorage.getItem(KEY); return d?JSON.parse(d):null; } catch(e){return null;} };
+const saveData = d => { try { localStorage.setItem(KEY,JSON.stringify(d)); } catch(e){} };
+
+// ── Unit conversion ───────────────────────────────────────
+const convertUnit = (qty, from, to) => {
+  if (!from||!to||from===to) return qty;
+  const f=from.toLowerCase(), t=to.toLowerCase();
+  if (f==="g"    &&t==="kg")    return qty/1000;
+  if (f==="kg"   &&t==="g")     return qty*1000;
+  if (f==="ml"   &&t==="litre") return qty/1000;
+  if (f==="litre"&&t==="ml")    return qty*1000;
+  if (f==="cup"  &&t==="ml")    return qty*240;
+  if (f==="cup"  &&t==="litre") return qty*0.24;
+  if (f==="ml"   &&t==="cup")   return qty/240;
+  if (f==="litre"&&t==="cup")   return qty/0.24;
+  if (f==="tbsp" &&t==="ml")    return qty*15;
+  if (f==="tsp"  &&t==="ml")    return qty*5;
+  if (f==="ml"   &&t==="tbsp")  return qty/15;
+  if (f==="ml"   &&t==="tsp")   return qty/5;
+  if (f==="tbsp" &&t==="tsp")   return qty*3;
+  if (f==="tsp"  &&t==="tbsp")  return qty/3;
+  if (f==="piece"&&t==="dozen") return qty/12;
+  if (f==="dozen"&&t==="piece") return qty*12;
+  return qty;
+};
+const ppu = ing => { const t=+(ing.totalPrice||ing.price||0), q=+(ing.purchaseQty||1); return q>0?t/q:t; };
+
+// ── Calc ──────────────────────────────────────────────────
+const calcRecipe = (r, ings, pkgs, target) => {
+  let ic=0;
+  r.items.forEach(it => {
+    const ing=ings.find(x=>x.id===it.ingredientId);
+    if (!ing) return;
+    const useU = it.useUnit||ing.unit;
+    ic += ppu(ing) * convertUnit(+it.qty||0, useU, ing.unit);
+  });
+  let pc=0;
+  r.pkgs.forEach(p => { const k=pkgs.find(x=>x.id===p.packagingId); if(k) pc+=k.price*p.qty; });
+  const raw=ic/(r.yield||1), wst=raw*((r.wastage||0)/100);
+  const lab=r.labourMin>0?(r.labourRate/60)*r.labourMin/(r.yield||1):0;
+  const tot=raw+wst+pc+lab;
+  const cp=r.sellingPrice>0?(tot/r.sellingPrice)*100:0;
+  const gp=r.sellingPrice-tot, mg=r.sellingPrice>0?(gp/r.sellingPrice)*100:0;
+  const sp=target>0?tot/(target/100):0;
+  return {ingCost:raw,pkgCost:pc,wastageAmt:wst,labourCost:lab,totalCost:tot,costPct:cp,grossProfit:gp,margin:mg,suggestedPrice:sp};
+};
+
+// ── Tiny UI ───────────────────────────────────────────────
+const Pill = ({val,target}) => {
+  const c=val<=target?"var(--gn)":val<=target*1.15?"var(--am)":"var(--rd)";
+  return <span style={{color:c,fontFamily:"var(--m)",fontWeight:700,fontSize:13}}>{val.toFixed(1)}%</span>;
+};
+const Empty = ({msg}) => <div className="empty"><div className="empty-ico">📭</div><div className="empty-msg">{msg}</div></div>;
+const F = ({label,children}) => <div className="fld">{label&&<label>{label}</label>}{children}</div>;
+
+// Sheet renders with overlay + bottom sheet — position:fixed works because no ancestor has overflow:hidden
+const Sheet = ({open,onClose,title,sub,children}) => {
+  if (!open) return null;
+  return ReactDOM.createPortal(
+    <>
+      <div className="overlay" onClick={onClose}/>
+      <div className="sheet">
+        <div className="sheet-handle"/>
+        {title&&<div className="sheet-title">{title}</div>}
+        {sub&&<div className="sheet-sub">{sub}</div>}
+        {children}
+      </div>
+    </>,
+    document.body
+  );
+};
+
+// ── Receipt Scanner (Tesseract OCR) ──────────────────────
+const Scanner = ({open,onClose,onSave,currency,existing}) => {
+  const [step,setStep]   = useState("upload");
+  const [prev,setPrev]   = useState(null);
+  const [prog,setProg]   = useState(0);
+  const [pmsg,setPmsg]   = useState("");
+  const [items,setItems] = useState([]);
+  const [sup,setSup]     = useState("");
+  const [err,setErr]     = useState(null);
+
+  const reset = () => { setStep("upload");setPrev(null);setProg(0);setItems([]);setSup("");setErr(null); };
+  const close = () => { reset();onClose(); };
+
+  const handleFile = async e => {
+    const file=e.target.files?.[0]; if(!file) return;
+    setErr(null);
+    const url=URL.createObjectURL(file);
+    setPrev(url); setStep("scanning"); setProg(0); setPmsg("Loading OCR...");
+    try {
+      if (!window.Tesseract) {
+        await new Promise((res,rej)=>{
+          const s=document.createElement("script");
+          s.src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js";
+          s.onload=res; s.onerror=rej; document.head.appendChild(s);
+        });
+      }
+      const result = await window.Tesseract.recognize(url,"eng",{
+        logger: m => {
+          if (m.status==="recognizing text"){setProg(Math.round(m.progress*100));setPmsg("Reading text...");}
+          else if (m.status.includes("loading")){setPmsg("Loading...");setProg(15);}
+          else if (m.status.includes("init")){setPmsg("Starting...");setProg(25);}
+        }
+      });
+      setProg(95); setPmsg("Parsing...");
+      const text=result.data.text;
+      if (!text||text.trim().length<10) throw new Error("Can't read image. Try better lighting.");
+      const parsed=parseLines(text.split("\n").map(l=>l.trim()).filter(l=>l.length>1));
+      if (!parsed.length) throw new Error("No items found. Try a clearer photo or add manually.");
+      setProg(100);
+      setItems(parsed.map(i=>({...i,id:uid(),removed:false,exists:existing.some(e=>e.name.toLowerCase()===i.name.toLowerCase())})));
+      setStep("review");
+      URL.revokeObjectURL(url);
+    } catch(e) {
+      setErr(e.message||"Scan failed."); setStep("upload"); URL.revokeObjectURL(url);
+    }
+  };
+
+  const parseLines = lines => {
+    const skip=["total","subtotal","grand","tax","gst","sst","change","cash","card","receipt","invoice","thank","tel","fax","date","time","void","discount","rounding","service","charge","running","qty","price","amount","payment","paid","balance","item","unit","description","no.","reg"];
+    const res=[]; const seen=new Set();
+    for (const line of lines) {
+      const lo=line.toLowerCase();
+      if (skip.some(w=>lo.includes(w))) continue;
+      if (line.length<3) continue;
+      if (/^[\d\s\.\,\:\-\*\/\=\+]+$/.test(line)) continue;
+      const pm=line.match(/(\d+[\.,]\d{2})/g);
+      const price=pm?parseFloat(pm[pm.length-1].replace(",",".")):0;
+      let name=line.replace(/[\d\.\,\:\*\/\=\(\)]+.*$/,"").trim().replace(/^[\-\*\.\s]+|[\-\*\.\s]+$/g,"").trim();
+      name=name.split(" ").map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(" ");
+      if (name.length<2||/^\d+$/.test(name)) continue;
+      const k=name.toLowerCase(); if(seen.has(k)) continue; seen.add(k);
+      const nl=name.toLowerCase();
+      let unit="piece";
+      if (/flour|sugar|salt|rice|chicken|beef|pork|meat|butter|powder|cheese/.test(nl)) unit="kg";
+      else if (/milk|oil|water|sauce|syrup|vinegar|coconut|cream/.test(nl)) unit="litre";
+      else if (/egg/.test(nl)) unit="dozen";
+      else if (/box|pack|bag|tin|can|bottle/.test(nl)) unit="pack";
+      res.push({name,price:price||0,unit,qty:1,confidence:price>0?"high":"low"});
+    }
+    return res;
+  };
+
+  const upd  = (id,k,v) => setItems(p=>p.map(i=>i.id===id?{...i,[k]:v}:i));
+  const tog  = id => setItems(p=>p.map(i=>i.id===id?{...i,removed:!i.removed}:i));
+  const act  = items.filter(i=>!i.removed).length;
+  const doSave = () => {
+    onSave(items.filter(i=>!i.removed).map(i=>({id:uid(),name:i.name,price:+i.price,unit:i.unit,supplier:sup||""})),sup);
+    close();
+  };
+
+  if (!open) return null;
+  return ReactDOM.createPortal(
+    <>
+      <div className="overlay" onClick={close}/>
+      <div className="sheet">
+        <div className="sheet-handle"/>
+        {step==="upload"&&(<>
+          <div className="sheet-title">📷 Scan Receipt</div>
+          <div className="sheet-sub">Free OCR — reads printed receipts</div>
+          <div className="szn" style={{marginBottom:14}}>
+            <input type="file" accept="image/*" capture="environment" onChange={handleFile}/>
+            <div style={{fontSize:40,marginBottom:10}}>🧾</div>
+            <div style={{fontWeight:700,fontSize:15,color:"var(--t1)",marginBottom:4}}>Tap to take photo</div>
+            <div style={{fontSize:12,color:"var(--t3)"}}>or choose from library</div>
+          </div>
+          {err&&<div style={{background:"rgba(244,112,112,.1)",border:"1px solid rgba(244,112,112,.3)",borderRadius:10,padding:"12px 14px",marginBottom:14,fontSize:13,color:"var(--rd)"}}>⚠️ {err}</div>}
+          <div className="card" style={{marginBottom:14,padding:"12px 14px"}}>
+            <div className="slb">Tips</div>
+            {["Lay flat, good lighting","All text in frame","Avoid shadows","Best with printed receipts"].map((t,i)=>(
+              <div key={i} style={{fontSize:12,color:"var(--t2)",display:"flex",gap:8,marginBottom:i<3?4:0}}><span style={{color:"var(--ac)"}}>▸</span>{t}</div>
+            ))}
+          </div>
+          <button className="btn bg fw" onClick={close}>Cancel</button>
+        </>)}
+        {step==="scanning"&&(
+          <div style={{textAlign:"center",padding:"28px 0 36px"}}>
+            {prev&&<img src={prev} alt="" style={{width:"100%",borderRadius:10,maxHeight:160,objectFit:"cover",marginBottom:20}}/>}
+            <div className="spin"/>
+            <div style={{fontFamily:"var(--d)",fontSize:18,fontStyle:"italic",color:"var(--t1)",marginBottom:6}}>{pmsg}</div>
+            <div className="pbar-w"><div className="pbar" style={{width:prog+"%"}}/></div>
+            <div style={{fontSize:11,color:"var(--t3)",marginTop:4}}>{prog}%</div>
+          </div>
+        )}
+        {step==="review"&&(<>
+          <div className="sheet-title">✅ Review Items</div>
+          <div className="sheet-sub">{act} item{act!==1?"s":""} · edit then save</div>
+          {prev&&<img src={prev} alt="" style={{width:"100%",borderRadius:10,maxHeight:100,objectFit:"cover",marginBottom:14}}/>}
+          <div style={{marginBottom:14}}>
+            <F label="Supplier / Store"><input value={sup} onChange={e=>setSup(e.target.value)} placeholder="e.g. NSK Trading"/></F>
+          </div>
+          <div style={{marginBottom:14}}>
+            {items.map(item=>(
+              <div key={item.id} className={`si${item.confidence==="low"?" flag":""}${item.removed?" gone":""}`}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:item.removed?0:10}}>
+                  <div style={{flex:1,marginRight:8}}>
+                    {item.removed
+                      ?<span style={{fontSize:13,color:"var(--t3)",textDecoration:"line-through"}}>{item.name}</span>
+                      :<input value={item.name} onChange={e=>upd(item.id,"name",e.target.value)} style={{background:"var(--s3)",border:"1px solid var(--br)",borderRadius:8,padding:"9px 10px",color:"var(--t1)",fontSize:14,outline:"none",width:"100%"}}/>
+                    }
+                  </div>
+                  <div style={{display:"flex",gap:5,alignItems:"center",flexShrink:0}}>
+                    {item.exists&&!item.removed&&<span className="badge bam-badge" style={{fontSize:8,padding:"1px 6px"}}>EXISTS</span>}
+                    {item.confidence==="low"&&!item.removed&&<span className="badge bam-badge" style={{fontSize:8,padding:"1px 6px"}}>CHECK</span>}
+                    <button onClick={()=>tog(item.id)} style={{background:item.removed?"var(--s3)":"rgba(244,112,112,.1)",border:`1.5px solid ${item.removed?"var(--br)":"rgba(244,112,112,.3)"}`,borderRadius:8,padding:"5px 10px",color:item.removed?"var(--t3)":"var(--rd)",fontSize:12,cursor:"pointer",fontWeight:700}}>
+                      {item.removed?"Undo":"✕"}
+                    </button>
+                  </div>
+                </div>
+                {!item.removed&&(
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                    <div className="sf"><label>Price ({currency})</label><input type="number" value={item.price} onChange={e=>upd(item.id,"price",e.target.value)} min={0} step="0.01"/></div>
+                    <div className="sf"><label>Qty</label><input type="number" value={item.qty} onChange={e=>upd(item.id,"qty",e.target.value)} min={0} step="0.1"/></div>
+                    <div className="sf"><label>Unit</label><select value={item.unit} onChange={e=>upd(item.id,"unit",e.target.value)}>{UNITS.map(u=><option key={u}>{u}</option>)}</select></div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button className="btn bp fw" onClick={doSave} disabled={act===0} style={{opacity:act===0?.5:1}}>💾 Save {act} Ingredient{act!==1?"s":""}</button>
+            <button className="btn bg" onClick={reset}>Retry</button>
+          </div>
+        </>)}
+      </div>
+    </>,
+    document.body
+  );
+};
+
+// ── Guide ─────────────────────────────────────────────────
+const GuideTab = ({setTab}) => {
+  const steps=[
+    {n:1,title:"Business Profile",desc:"Set biz type, currency, target cost % and channels.",icon:"🏪",tab:"profile"},
+    {n:2,title:"Add Ingredients",desc:"Build ingredient library — manually or scan a receipt.",icon:"🥚",tab:"ingredients"},
+    {n:3,title:"Add Packaging",desc:"Boxes, bags, napkins — all the extras.",icon:"📦",tab:"packaging"},
+    {n:4,title:"Build Recipes",desc:"Pick ingredients, set qty and yield. Auto-calculates.",icon:"🍳",tab:"recipes"},
+    {n:5,title:"Set Prices",desc:"Enter selling prices, see food cost per platform.",icon:"💰",tab:"recipes"},
+    {n:6,title:"Check Dashboard",desc:"Top/bottom margins, avg food cost, full breakdown.",icon:"📊",tab:"dashboard"},
+  ];
+  const tips=["Update ingredient prices every restock","Include packaging — it eats margin silently","Add 5–10% wastage buffer to raw cost","Stalls 25–35% · Cafes 28–35% · Restaurants 30–38%","Review lowest-margin items monthly","📷 Scan receipts to bulk-add ingredients (free OCR)"];
+  return (
+    <div className="page">
+      <div className="ph"><div className="ptitle">How to use</div></div>
+      <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+        {steps.map(s=>(
+          <div key={s.n} className="card" onClick={()=>setTab(s.tab)} style={{display:"flex",gap:12,alignItems:"flex-start",cursor:"pointer"}}>
+            <div style={{width:42,height:42,borderRadius:10,background:"var(--acb)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{s.icon}</div>
+            <div style={{flex:1}}>
+              <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:3}}>
+                <span style={{fontSize:9,fontWeight:800,color:"var(--ac)",fontFamily:"var(--m)"}}>STEP {s.n}</span>
+                <span style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>{s.title}</span>
+              </div>
+              <p style={{margin:0,fontSize:12,color:"var(--t3)",lineHeight:1.5}}>{s.desc}</p>
+            </div>
+            <span style={{color:"var(--t3)",fontSize:16,alignSelf:"center"}}>›</span>
+          </div>
+        ))}
+      </div>
+      <div className="card">
+        <div style={{fontFamily:"var(--d)",fontSize:15,color:"var(--am)",marginBottom:10,fontStyle:"italic"}}>💡 Pro Tips</div>
+        {tips.map((t,i)=>(
+          <div key={i} style={{display:"flex",gap:8,fontSize:12,color:"var(--t2)",lineHeight:1.6,paddingBottom:i<tips.length-1?7:0,borderBottom:i<tips.length-1?"1px solid var(--br)":"none",marginBottom:i<tips.length-1?7:0}}>
+            <span style={{color:"var(--am)",flexShrink:0}}>▸</span>{t}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ── Profile ───────────────────────────────────────────────
+const ProfileTab = ({profile,setProfile}) => {
+  const up=(k,v)=>setProfile(p=>({...p,[k]:v}));
+  const upCh=(id,k,v)=>setProfile(p=>({...p,channels:p.channels.map(c=>c.id===id?{...c,[k]:v}:c)}));
+  const addCh=()=>setProfile(p=>({...p,channels:[...p.channels,{id:uid(),name:"",commission:0}]}));
+  const rmCh=id=>setProfile(p=>({...p,channels:p.channels.filter(c=>c.id!==id)}));
+  const bench=BENCHMARK[profile.type]||[28,35];
+  return (
+    <div className="page">
+      <div className="ph"><div className="ptitle">Profile</div></div>
+      <div style={{display:"flex",flexDirection:"column",gap:14,marginBottom:20}}>
+        <F label="Business Name"><input value={profile.name} onChange={e=>up("name",e.target.value)} placeholder="e.g. Koridor Pancakes"/></F>
+        <F label="Business Type"><select value={profile.type} onChange={e=>up("type",e.target.value)}>{BIZ_TYPES.map(t=><option key={t}>{t}</option>)}</select></F>
+        <F label="Currency"><select value={profile.currency} onChange={e=>up("currency",e.target.value)}>{CURRENCIES.map(c=><option key={c}>{c}</option>)}</select></F>
+        <F label={`Target Food Cost % — Benchmark: ${bench[0]}–${bench[1]}%`}><input type="number" value={profile.targetCostPct} onChange={e=>up("targetCostPct",+e.target.value)} min={1} max={100}/></F>
+      </div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <div className="slb" style={{marginBottom:0}}>Sales Channels</div>
+        <button className="btn bs sm" onClick={addCh}>+ Add</button>
+      </div>
+      {profile.channels.map(ch=>(
+        <div key={ch.id} className="cr">
+          <input value={ch.name} onChange={e=>upCh(ch.id,"name",e.target.value)} placeholder="Channel name" style={{flex:2}}/>
+          <input type="number" value={ch.commission} onChange={e=>upCh(ch.id,"commission",+e.target.value)} placeholder="%" min={0} max={100} style={{flex:1}}/>
+          <button className="btn bd sm" onClick={()=>rmCh(ch.id)} style={{padding:"0 12px"}}>✕</button>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ── Ingredients ───────────────────────────────────────────
+const IngredientsTab = ({ingredients,setIngredients,currency}) => {
+  const [sheet,    setSheet]    = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
+  const [editId,   setEditId]   = useState(null);
+  const [toast,    setToast]    = useState(null);
+  const blank = {name:"",unit:"kg",purchaseQty:"1",totalPrice:"",supplier:""};
+  const [form, setForm] = useState(blank);
+
+  const open = item => {
+    setEditId(item?.id||null);
+    setForm(item ? {name:item.name,unit:item.unit,purchaseQty:item.purchaseQty||"1",totalPrice:item.totalPrice||item.price||"",supplier:item.supplier||""} : blank);
+    setSheet(true);
+  };
+  const doSave = () => {
+    if (!form.name||!form.totalPrice) return;
+    const rate = (+form.totalPrice)/(+form.purchaseQty||1);
+    const obj  = {...form,totalPrice:+form.totalPrice,purchaseQty:+form.purchaseQty,price:rate};
+    if (editId) { setIngredients(p=>p.map(i=>i.id===editId?{...i,...obj}:i)); }
+    else        { setIngredients(p=>[...p,{id:uid(),...obj}]); }
+    setSheet(false);
+  };
+  const showToast = msg => { setToast(msg); setTimeout(()=>setToast(null),3000); };
+  const handleScan = (items,sup) => {
+    let added=0,updated=0;
+    setIngredients(prev=>{
+      let next=[...prev];
+      items.forEach(item=>{
+        const idx=next.findIndex(e=>e.name.toLowerCase()===item.name.toLowerCase());
+        if (idx>=0) { next[idx]={...next[idx],price:item.price,totalPrice:item.price,purchaseQty:1,supplier:sup||next[idx].supplier}; updated++; }
+        else        { next.push({id:uid(),...item,totalPrice:item.price,purchaseQty:1}); added++; }
+      });
+      return next;
+    });
+    const parts=[];
+    if(added)   parts.push(`${added} added`);
+    if(updated) parts.push(`${updated} updated`);
+    showToast("✅ "+parts.join(", "));
+  };
+
+  return (
+    <div className="page">
+      {toast&&<div className="toast">{toast}</div>}
+      <div className="ph">
+        <div className="ptitle">Ingredients</div>
+        <div style={{display:"flex",gap:8}}>
+          <button className="btn bam sm" onClick={()=>setScanOpen(true)}>📷 Scan</button>
+          <button className="btn bp sm"  onClick={()=>open(null)}>+ Add</button>
+        </div>
+      </div>
+
+      {ingredients.length===0?(
+        <div>
+          <Empty msg="No ingredients yet."/>
+          <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:8}}>
+            <button className="btn bam fw" style={{fontSize:15}} onClick={()=>setScanOpen(true)}>📷 Scan a Receipt (Free)</button>
+            <button className="btn bs fw"  onClick={()=>open(null)}>+ Add Manually</button>
+          </div>
+        </div>
+      ):(
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {ingredients.map(i=>(
+            <div key={i.id} className="card" style={{padding:"13px 14px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,fontSize:14,color:"var(--t1)"}}>{i.name}</div>
+                  <div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>
+                    {+(i.purchaseQty||1)}{i.unit} · {i.supplier||"No supplier"}
+                  </div>
+                  <div style={{fontSize:11,color:"var(--t3)",marginTop:1}}>
+                    Total: {currency}{(+(i.totalPrice||i.price||0)).toFixed(2)} →{" "}
+                    <span style={{color:"var(--ac)",fontFamily:"var(--m)",fontWeight:700}}>
+                      {currency}{ppu(i).toFixed(3)}/{i.unit}
+                    </span>
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:6,marginLeft:8,flexShrink:0}}>
+                  <button className="btn bg sm" onClick={()=>open(i)} style={{padding:"0 10px"}}>✎</button>
+                  <button className="btn bd sm" onClick={()=>setIngredients(p=>p.filter(x=>x.id!==i.id))} style={{padding:"0 10px"}}>✕</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Sheet open={sheet} onClose={()=>setSheet(false)} title={editId?"Edit Ingredient":"Add Ingredient"}>
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <F label="Name"><input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. All-Purpose Flour"/></F>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <F label="Purchase Unit"><select value={form.unit} onChange={e=>setForm(f=>({...f,unit:e.target.value}))}>{UNITS.map(u=><option key={u}>{u}</option>)}</select></F>
+            <F label="Qty Purchased"><input type="number" value={form.purchaseQty} onChange={e=>setForm(f=>({...f,purchaseQty:e.target.value}))} placeholder="e.g. 25" min={0} step="0.001"/></F>
+          </div>
+          <F label={`Total Price Paid (${currency})`}><input type="number" value={form.totalPrice} onChange={e=>setForm(f=>({...f,totalPrice:e.target.value}))} placeholder="e.g. 50.00" min={0} step="0.01"/></F>
+          {form.totalPrice>0&&form.purchaseQty>0&&(
+            <div style={{background:"var(--acb)",border:"1px solid var(--ac)",borderRadius:10,padding:"10px 14px",fontSize:13}}>
+              <span style={{color:"var(--t3)"}}>Rate: </span>
+              <span style={{color:"var(--ac)",fontFamily:"var(--m)",fontWeight:700}}>
+                {currency}{((+form.totalPrice)/(+form.purchaseQty)).toFixed(3)} / {form.unit}
+              </span>
+            </div>
+          )}
+          <F label="Supplier (optional)"><input value={form.supplier} onChange={e=>setForm(f=>({...f,supplier:e.target.value}))} placeholder="e.g. NSK Trading"/></F>
+          <div style={{display:"flex",gap:10,paddingBottom:4}}>
+            <button className="btn bp fw" onClick={doSave}>{editId?"Update":"Add"}</button>
+            <button className="btn bg"    onClick={()=>setSheet(false)}>Cancel</button>
+          </div>
+        </div>
+      </Sheet>
+
+      <Scanner open={scanOpen} onClose={()=>setScanOpen(false)} onSave={handleScan} currency={currency} existing={ingredients}/>
+    </div>
+  );
+};
+
+// ── Packaging ─────────────────────────────────────────────
+const PackagingTab = ({packaging,setPackaging,currency}) => {
+  const [sheet,  setSheet]  = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [form,   setForm]   = useState({name:"",price:""});
+  const open = item => { setEditId(item?.id||null); setForm(item?{name:item.name,price:item.price}:{name:"",price:""}); setSheet(true); };
+  const doSave = () => {
+    if (!form.name||!form.price) return;
+    if (editId) { setPackaging(p=>p.map(i=>i.id===editId?{...i,...form,price:+form.price}:i)); }
+    else        { setPackaging(p=>[...p,{id:uid(),...form,price:+form.price}]); }
+    setSheet(false);
+  };
+  return (
+    <div className="page">
+      <div className="ph"><div className="ptitle">Packaging</div><button className="btn bp sm" onClick={()=>open(null)}>+ Add</button></div>
+      {packaging.length===0?<Empty msg="No packaging yet. Add boxes, bags, napkins, etc."/>:(
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          {packaging.map(p=>(
+            <div key={p.id} className="card" style={{padding:14}}>
+              <div style={{fontWeight:700,fontSize:13,color:"var(--t1)",marginBottom:4}}>{p.name}</div>
+              <div style={{fontFamily:"var(--m)",color:"var(--ac)",fontSize:12,marginBottom:12}}>{currency} {(+p.price).toFixed(2)}/pc</div>
+              <div style={{display:"flex",gap:6}}>
+                <button className="btn bg sm" onClick={()=>open(p)} style={{flex:1,padding:0,fontSize:11}}>Edit</button>
+                <button className="btn bd sm" onClick={()=>setPackaging(x=>x.filter(i=>i.id!==p.id))} style={{flex:1,padding:0,fontSize:11}}>Del</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <Sheet open={sheet} onClose={()=>setSheet(false)} title={editId?"Edit Packaging":"Add Packaging"}>
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <F label="Item Name"><input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Takeaway Box"/></F>
+          <F label={`Cost per piece (${currency})`}><input type="number" value={form.price} onChange={e=>setForm(f=>({...f,price:e.target.value}))} placeholder="0.00" min={0} step="0.01"/></F>
+          <div style={{display:"flex",gap:10,paddingBottom:4}}>
+            <button className="btn bp fw" onClick={doSave}>{editId?"Update":"Add"}</button>
+            <button className="btn bg"    onClick={()=>setSheet(false)}>Cancel</button>
+          </div>
+        </div>
+      </Sheet>
+    </div>
+  );
+};
+
+// ── Recipes ───────────────────────────────────────────────
+const RecipesTab = ({recipes,setRecipes,ingredients,packaging,profile}) => {
+  const [sheet,    setSheet]    = useState(false);
+  const [editId,   setEditId]   = useState(null);
+  const [expanded, setExpanded] = useState(null);
+  const blank={name:"",category:"Main",yield:1,sellingPrice:"",wastage:5,labourMin:0,labourRate:0,items:[],pkgs:[]};
+  const [form,setForm]=useState(blank);
+  const cur=profile.currency;
+
+  const open = r => {
+    setEditId(r?.id||null);
+    setForm(r?{...r,items:r.items.map(it=>({...it,useUnit:it.useUnit||ingredients.find(x=>x.id===it.ingredientId)?.unit||"g"})),pkgs:[...r.pkgs]}:{...blank,items:[],pkgs:[]});
+    setSheet(true);
+  };
+  const addItem=()=>{const f=ingredients[0];setForm(x=>({...x,items:[...x.items,{ingredientId:f?.id||"",qty:"",useUnit:f?.unit||"g"}]}));};
+  const upItem=(i,k,v)=>setForm(x=>({...x,items:x.items.map((it,idx)=>idx===i?{...it,[k]:v}:it)}));
+  const rmItem=i=>setForm(x=>({...x,items:x.items.filter((_,idx)=>idx!==i)}));
+  const addPkg=()=>setForm(x=>({...x,pkgs:[...x.pkgs,{packagingId:packaging[0]?.id||"",qty:1}]}));
+  const upPkg=(i,k,v)=>setForm(x=>({...x,pkgs:x.pkgs.map((p,idx)=>idx===i?{...p,[k]:v}:p)}));
+  const rmPkg=i=>setForm(x=>({...x,pkgs:x.pkgs.filter((_,idx)=>idx!==i)}));
+  const doSave=()=>{
+    if (!form.name||!form.sellingPrice) return;
+    const data={...form,sellingPrice:+form.sellingPrice,yield:+form.yield||1,wastage:+form.wastage,labourMin:+form.labourMin,labourRate:+form.labourRate,items:form.items.map(it=>({...it,qty:+it.qty,useUnit:it.useUnit||ingredients.find(x=>x.id===it.ingredientId)?.unit||"g"}))};
+    if (editId) { setRecipes(p=>p.map(r=>r.id===editId?{...r,...data}:r)); }
+    else        { setRecipes(p=>[...p,{id:uid(),...data}]); }
+    setSheet(false);
+  };
+
+  return (
+    <div className="page">
+      <div className="ph"><div className="ptitle">Recipes</div><button className="btn bp sm" onClick={()=>open(null)} disabled={!ingredients.length}>+ Add</button></div>
+      {ingredients.length===0&&<div className="card" style={{borderColor:"var(--am)",marginBottom:12}}><p style={{color:"var(--am)",fontSize:13,margin:0}}>⚠️ Add ingredients first.</p></div>}
+      {recipes.length===0?<Empty msg="No recipes yet."/>:(
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {recipes.map(r=>{
+            const c=calcRecipe(r,ingredients,packaging,profile.targetCostPct);
+            const isO=expanded===r.id;
+            return (
+              <div key={r.id} className="rc">
+                <div className="rh" onClick={()=>setExpanded(isO?null:r.id)}>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700,fontSize:14,color:"var(--t1)"}}>{r.name}</div>
+                    <div style={{display:"flex",gap:7,marginTop:4,alignItems:"center"}}>
+                      <span className="badge">{r.category}</span>
+                      <span style={{fontSize:10,color:"var(--t3)"}}>Yield: {r.yield}</span>
+                    </div>
+                  </div>
+                  <div style={{display:"flex",gap:14,alignItems:"center"}}>
+                    <div style={{textAlign:"right"}}><div style={{fontSize:9,color:"var(--t3)",fontWeight:700,marginBottom:2}}>FOOD COST</div><Pill val={c.costPct} target={profile.targetCostPct}/></div>
+                    <div style={{textAlign:"right"}}><div style={{fontSize:9,color:"var(--t3)",fontWeight:700,marginBottom:2}}>PROFIT</div><div style={{fontFamily:"var(--m)",fontWeight:700,fontSize:13,color:c.grossProfit>=0?"var(--gn)":"var(--rd)"}}>{cur} {c.grossProfit.toFixed(2)}</div></div>
+                    <span style={{color:"var(--t3)",fontSize:16,transform:isO?"rotate(180deg)":"none",transition:"transform .2s"}}>▾</span>
+                  </div>
+                </div>
+                {isO&&(
+                  <div className="rb">
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,paddingTop:12,paddingBottom:14}}>
+                      {[["Ing. Cost",`${cur} ${c.ingCost.toFixed(2)}`],["Pkg Cost",`${cur} ${c.pkgCost.toFixed(2)}`],[`Wastage ${r.wastage}%`,`${cur} ${c.wastageAmt.toFixed(2)}`],["Labour",`${cur} ${c.labourCost.toFixed(2)}`],["Total Cost",`${cur} ${c.totalCost.toFixed(2)}`],["Selling Price",`${cur} ${(+r.sellingPrice).toFixed(2)}`],["Suggested",`${cur} ${c.suggestedPrice.toFixed(2)}`],["Margin",`${c.margin.toFixed(1)}%`]].map(([l,v],i)=>(
+                        <div key={i} style={{background:"var(--s2)",borderRadius:9,padding:"10px 12px"}}>
+                          <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,marginBottom:3}}>{l.toUpperCase()}</div>
+                          <div style={{fontFamily:"var(--m)",fontWeight:700,fontSize:13,color:l==="Selling Price"?"var(--ac)":l==="Suggested"?"var(--am)":l==="Margin"?(c.margin>=0?"var(--gn)":"var(--rd)"):"var(--t1)"}}>{v}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="slb">Platform Margins</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:14}}>
+                      {profile.channels.map(ch=>{
+                        const nr=r.sellingPrice*(1-ch.commission/100),np=nr-c.totalCost,nm=nr>0?(np/nr)*100:0;
+                        return (
+                          <div key={ch.id} style={{background:"var(--s2)",borderRadius:10,padding:"11px 13px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                            <div><div style={{fontSize:12,fontWeight:700,color:"var(--t2)"}}>{ch.name}</div><div style={{fontSize:10,color:"var(--t3)"}}>{ch.commission}% commission</div></div>
+                            <div style={{textAlign:"right"}}><div style={{fontFamily:"var(--m)",fontWeight:700,fontSize:15,color:np>=0?"var(--gn)":"var(--rd)"}}>{cur} {np.toFixed(2)}</div><div style={{fontSize:10,color:"var(--t3)"}}>{nm.toFixed(1)}% margin</div></div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div style={{display:"flex",gap:8}}>
+                      <button className="btn bs sm" style={{flex:1}} onClick={()=>open(r)}>Edit Recipe</button>
+                      <button className="btn bd sm" onClick={()=>setRecipes(p=>p.filter(x=>x.id!==r.id))}>Delete</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <Sheet open={sheet} onClose={()=>setSheet(false)} title={editId?"Edit Recipe":"New Recipe"}>
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:12}}>
+            <F label="Recipe Name"><input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Original Pancake"/></F>
+            <F label="Category"><select value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))}>{CATEGORIES.map(c=><option key={c}>{c}</option>)}</select></F>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+            <F label="Yield"><input type="number" value={form.yield} onChange={e=>setForm(f=>({...f,yield:e.target.value}))} min={1}/></F>
+            <F label={`Price (${cur})`}><input type="number" value={form.sellingPrice} onChange={e=>setForm(f=>({...f,sellingPrice:e.target.value}))} min={0} step="0.1"/></F>
+            <F label="Wastage %"><input type="number" value={form.wastage} onChange={e=>setForm(f=>({...f,wastage:e.target.value}))} min={0} max={50}/></F>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <F label="Labour (min)"><input type="number" value={form.labourMin} onChange={e=>setForm(f=>({...f,labourMin:e.target.value}))} min={0}/></F>
+            <F label={`Rate (${cur}/hr)`}><input type="number" value={form.labourRate} onChange={e=>setForm(f=>({...f,labourRate:e.target.value}))} min={0} step="0.5"/></F>
+          </div>
+
+          <div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <div className="slb" style={{marginBottom:0}}>Ingredients</div>
+              <button className="btn bs sm" onClick={addItem}>+ Add</button>
+            </div>
+            {form.items.map((it,i)=>{
+              const ing=ingredients.find(x=>x.id===it.ingredientId);
+              const useU=it.useUnit||(ing?.unit||"g");
+              const qBase=ing?convertUnit(+it.qty||0,useU,ing.unit):0;
+              const cost=ing?ppu(ing)*qBase:0;
+              return (
+                <div key={i} style={{marginBottom:10,background:"var(--s2)",borderRadius:10,padding:"10px 12px"}}>
+                  <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
+                    <select value={it.ingredientId} onChange={e=>{const ni=ingredients.find(x=>x.id===e.target.value);upItem(i,"ingredientId",e.target.value);if(ni)upItem(i,"useUnit",ni.unit);}} style={{flex:1,background:"var(--s3)",border:"1px solid var(--br)",borderRadius:8,padding:"10px 8px",color:"var(--t1)",fontSize:13,outline:"none"}}>
+                      {ingredients.map(ing=><option key={ing.id} value={ing.id}>{ing.name}</option>)}
+                    </select>
+                    <button onClick={()=>rmItem(i)} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",fontSize:18,padding:"4px 6px",flexShrink:0}}>✕</button>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    <div className="sf"><label>Qty Used</label><input type="number" value={it.qty} onChange={e=>upItem(i,"qty",e.target.value)} placeholder="0" min={0} step="0.001"/></div>
+                    <div className="sf"><label>Unit</label><select value={useU} onChange={e=>upItem(i,"useUnit",e.target.value)}>{UNITS.map(u=><option key={u}>{u}</option>)}</select></div>
+                  </div>
+                  {it.qty>0&&ing&&(
+                    <div style={{marginTop:6,fontSize:11,color:"var(--t3)"}}>
+                      {it.qty}{useU} → {qBase.toFixed(4)}{ing.unit} · <span style={{color:"var(--ac)",fontFamily:"var(--m)",fontWeight:700}}>{cur} {cost.toFixed(4)}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {packaging.length>0&&(
+            <div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <div className="slb" style={{marginBottom:0}}>Packaging</div>
+                <button className="btn bs sm" onClick={addPkg}>+ Add</button>
+              </div>
+              {form.pkgs.map((p,i)=>(
+                <div key={i} className="ir">
+                  <select value={p.packagingId} onChange={e=>upPkg(i,"packagingId",e.target.value)} style={{flex:2}}>{packaging.map(pk=><option key={pk.id} value={pk.id}>{pk.name} ({cur}{(+pk.price).toFixed(2)})</option>)}</select>
+                  <input type="number" value={p.qty} onChange={e=>upPkg(i,"qty",+e.target.value)} placeholder="Qty" min={1} style={{flex:1}}/>
+                  <button onClick={()=>rmPkg(i)} style={{background:"none",border:"none",color:"var(--rd)",cursor:"pointer",fontSize:18,padding:"4px 6px"}}>✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{display:"flex",gap:10,paddingBottom:4}}>
+            <button className="btn bp fw" onClick={doSave}>{editId?"Update Recipe":"Add Recipe"}</button>
+            <button className="btn bg"    onClick={()=>setSheet(false)}>Cancel</button>
+          </div>
+        </div>
+      </Sheet>
+    </div>
+  );
+};
+
+// ── Dashboard ─────────────────────────────────────────────
+const DashboardTab = ({recipes,ingredients,packaging,profile}) => {
+  const cur=profile.currency;
+  const all=useMemo(()=>recipes.map(r=>({...r,...calcRecipe(r,ingredients,packaging,profile.targetCostPct)})),[recipes,ingredients,packaging,profile.targetCostPct]);
+  if (!recipes.length) return <Empty msg="Add recipes to see analytics."/>;
+  const avg=all.reduce((s,r)=>s+r.costPct,0)/all.length;
+  const top=[...all].sort((a,b)=>b.margin-a.margin).slice(0,5);
+  const bot=[...all].sort((a,b)=>a.margin-b.margin).slice(0,5);
+  const healthy=all.filter(r=>r.costPct<=profile.targetCostPct).length;
+  const best=top[0]?.margin||100;
+  return (
+    <div className="page">
+      <div className="ph"><div className="ptitle">Dashboard</div></div>
+      <div className="stats">
+        <div className="stat"><div className="slbl">Recipes</div><div className="sval">{recipes.length}</div></div>
+        <div className="stat"><div className="slbl">Avg Food Cost</div><div className="sval" style={{color:avg<=profile.targetCostPct?"var(--gn)":"var(--rd)"}}>{avg.toFixed(1)}%</div><div className="ssub">Target: {profile.targetCostPct}%</div></div>
+        <div className="stat"><div className="slbl">Healthy Items</div><div className="sval" style={{color:"var(--gn)"}}>{healthy}/{recipes.length}</div><div className="ssub">Under {profile.targetCostPct}% FC</div></div>
+        <div className="stat"><div className="slbl">Ingredients</div><div className="sval">{ingredients.length}</div><div className="ssub">in library</div></div>
+      </div>
+      <div className="card" style={{marginBottom:12}}>
+        <div style={{fontFamily:"var(--d)",fontSize:15,color:"var(--gn)",marginBottom:12,fontStyle:"italic"}}>🏆 Top Margins</div>
+        {top.map((r,i)=>(<div key={r.id} style={{marginBottom:i<top.length-1?12:0}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{r.name}</span><span style={{fontFamily:"var(--m)",fontWeight:700,color:"var(--gn)",fontSize:12}}>{r.margin.toFixed(1)}%</span></div><div className="pt"><div className="pf" style={{width:`${Math.max(0,(r.margin/best)*100)}%`,background:"var(--gn)"}}/></div></div>))}
+      </div>
+      <div className="card" style={{marginBottom:12}}>
+        <div style={{fontFamily:"var(--d)",fontSize:15,color:"var(--rd)",marginBottom:12,fontStyle:"italic"}}>⚠️ Lowest Margins</div>
+        {bot.map((r,i)=>(<div key={r.id} style={{marginBottom:i<bot.length-1?12:0}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{r.name}</span><span style={{fontFamily:"var(--m)",fontWeight:700,color:r.margin<0?"var(--rd)":"var(--am)",fontSize:12}}>{r.margin.toFixed(1)}%</span></div><div className="pt"><div className="pf" style={{width:`${Math.max(0,Math.min(100,(r.margin/best)*100))}%`,background:r.margin<0?"var(--rd)":"var(--am)"}}/></div></div>))}
+      </div>
+      <div className="card">
+        <div style={{fontFamily:"var(--d)",fontSize:15,color:"var(--t1)",marginBottom:12,fontStyle:"italic"}}>📋 Full Menu</div>
+        {[...all].sort((a,b)=>b.margin-a.margin).map(r=>(
+          <div key={r.id} className="mc">
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+              <div><div style={{fontWeight:700,fontSize:13,color:"var(--t1)"}}>{r.name}</div><span className="badge" style={{marginTop:3,display:"inline-block"}}>{r.category}</span></div>
+              <div style={{textAlign:"right"}}><div style={{fontFamily:"var(--m)",fontWeight:700,fontSize:15,color:r.grossProfit>=0?"var(--gn)":"var(--rd)"}}>{cur} {r.grossProfit.toFixed(2)}</div><div style={{fontSize:10,color:"var(--t3)"}}>profit/serving</div></div>
+            </div>
+            <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:profile.channels.length?8:0}}>
+              <div><span style={{fontSize:9,color:"var(--t3)"}}>COST </span><span style={{fontFamily:"var(--m)",fontSize:12,color:"var(--t2)"}}>{cur}{r.totalCost.toFixed(2)}</span></div>
+              <div><span style={{fontSize:9,color:"var(--t3)"}}>PRICE </span><span style={{fontFamily:"var(--m)",fontSize:12,color:"var(--t1)"}}>{cur}{(+r.sellingPrice).toFixed(2)}</span></div>
+              <div><span style={{fontSize:9,color:"var(--t3)"}}>FC </span><Pill val={r.costPct} target={profile.targetCostPct}/></div>
+            </div>
+            {profile.channels.length>0&&(
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {profile.channels.map(ch=>{const net=r.sellingPrice*(1-ch.commission/100)-r.totalCost;return<div key={ch.id} style={{background:"var(--s3)",borderRadius:7,padding:"4px 10px",fontSize:11}}><span style={{color:"var(--t3)"}}>{ch.name}: </span><span style={{fontFamily:"var(--m)",fontWeight:700,color:net>=0?"var(--gn)":"var(--rd)"}}>{cur}{net.toFixed(2)}</span></div>;})}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ── App ───────────────────────────────────────────────────
+function App() {
+  const saved = loadData();
+  const [tab,   setTab]     = useState("guide");
+  const [prof,  setProf]    = useState(saved?.profile     || defaultProfile);
+  const [ings,  setIngs]    = useState(saved?.ingredients || []);
+  const [pkgs,  setPkgs]    = useState(saved?.packaging   || []);
+  const [recs,  setRecs]    = useState(saved?.recipes     || []);
+  const [ping,  setPing]    = useState(false);
+
+  useEffect(()=>{
+    saveData({profile:prof,ingredients:ings,packaging:pkgs,recipes:recs});
+    setPing(true);
+    const t=setTimeout(()=>setPing(false),1200);
+    return ()=>clearTimeout(t);
+  },[prof,ings,pkgs,recs]);
+
+  return (
+    <div id="wrap">
+      <div className="topbar">
+        <div className="logo">🍳</div>
+        <div>
+          <div className="appname">KiraKos</div>
+          <div className="appsub">Food Cost Calculator</div>
+        </div>
+        <div className="barright">
+          {prof.name&&<div style={{color:"var(--t2)",fontWeight:600,fontSize:11}}>{prof.name}</div>}
+          <div>{prof.type} · {prof.currency} · {prof.targetCostPct}%</div>
+          <div style={{fontSize:9,color:ping?"var(--gn)":"var(--t3)",transition:"color .4s"}}>{ping?"✓ Saved":"Auto-save on"}</div>
+        </div>
+      </div>
+
+      <div className="scroll-area">
+        {tab==="guide"       && <GuideTab setTab={setTab}/>}
+        {tab==="profile"     && <ProfileTab profile={prof} setProfile={setProf}/>}
+        {tab==="ingredients" && <IngredientsTab ingredients={ings} setIngredients={setIngs} currency={prof.currency}/>}
+        {tab==="packaging"   && <PackagingTab packaging={pkgs} setPackaging={setPkgs} currency={prof.currency}/>}
+        {tab==="recipes"     && <RecipesTab recipes={recs} setRecipes={setRecs} ingredients={ings} packaging={pkgs} profile={prof}/>}
+        {tab==="dashboard"   && <DashboardTab recipes={recs} ingredients={ings} packaging={pkgs} profile={prof}/>}
+      </div>
+
+      <div className="tabbar">
+        {TABS.map(t=>(
+          <button key={t.key} className={`tab ${tab===t.key?"on":""}`} onClick={()=>setTab(t.key)}>
+            <span className="ico">{t.icon}</span>
+            <span className="lbl">{t.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
